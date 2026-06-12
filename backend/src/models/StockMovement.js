@@ -14,6 +14,13 @@ const schema = new mongoose.Schema(
     type: { type: String, enum: ["in", "out"], required: true },
     qty: { type: Number, required: true, min: 1 },
     reason: { type: String, trim: true },
+    sourceType: {
+      type: String,
+      enum: ["invoice", "purchase", "adjustment"],
+      default: "adjustment",
+    },
+    sourceId: { type: mongoose.Schema.Types.ObjectId },
+    sourceNumber: { type: String, trim: true },
   },
   { timestamps: true },
 );

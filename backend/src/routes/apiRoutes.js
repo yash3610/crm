@@ -17,6 +17,7 @@ import {
   paymentController,
   productController,
   purchaseController,
+  recordPurchasePayment,
   quotationController,
   supplierController,
 } from "../controllers/resourceControllers.js";
@@ -71,6 +72,11 @@ router.use(
     writeRoles: ["Owner", "Admin", "Accountant", "Sales"],
     deleteRoles: ["Owner", "Admin"],
   }),
+);
+router.post(
+  "/purchases/:id/pay",
+  allowRoles("Owner", "Admin", "Accountant"),
+  recordPurchasePayment,
 );
 router.use(
   "/purchases",

@@ -27,7 +27,21 @@ export const getDashboard = asyncHandler(async (req, res) => {
           status: { $in: ["pending", "overdue"] },
         },
       },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: {
+              $max: [
+                0,
+                {
+                  $subtract: ["$amount", { $ifNull: ["$paidAmount", 0] }],
+                },
+              ],
+            },
+          },
+        },
+      },
     ]),
     Expense.aggregate([
       { $match: { tenantId } },

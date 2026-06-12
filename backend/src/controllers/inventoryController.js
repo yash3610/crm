@@ -65,6 +65,7 @@ export const adjustStock = asyncHandler(async (req, res) => {
     type,
     qty: quantity,
     reason,
+    sourceType: "adjustment",
   });
 
   res.status(201).json({

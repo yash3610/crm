@@ -51,9 +51,20 @@ function InvoiceDetail() {
       .catch((error) => toast.error(error.message));
   }, [id]);
   const lines = inv.lines?.length ? inv.lines : sampleLines;
-  const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
-  const gst = lines.reduce((s, l) => s + (l.qty * l.price * l.gst) / 100, 0);
+  const subtotal = lines.reduce((sum, line) => {
+    const base = line.qty * line.price;
+    return sum + base - (base * Number(line.discount || 0)) / 100;
+  }, 0);
+  const gst = lines.reduce((sum, line) => {
+    const base = line.qty * line.price;
+    const taxable = base - (base * Number(line.discount || 0)) / 100;
+    return sum + (taxable * line.gst) / 100;
+  }, 0);
   const total = subtotal + gst;
+  const balance = Math.max(
+    0,
+    Number(inv.amount || total) - Number(inv.paidAmount || 0),
+  );
   const business = documentSettings.business;
   const invoiceSettings = documentSettings.invoice;
   return (
@@ -209,7 +220,11 @@ function InvoiceDetail() {
                   )}
                   <td className="py-3 text-right tabular-nums">{l.gst}%</td>
                   <td className="py-3 text-right tabular-nums">
-                    {formatINR(l.qty * l.price)}
+                    {formatINR(
+                      (l.qty * l.price -
+                        (l.qty * l.price * Number(l.discount || 0)) / 100) *
+                        (1 + Number(l.gst || 0) / 100),
+                    )}
                   </td>
                 </tr>
               ))}
@@ -233,7 +248,7 @@ function InvoiceDetail() {
               {invoiceSettings.showBalance && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>Balance due</span>
-                  <span className="tabular-nums">{formatINR(inv.amount)}</span>
+                  <span className="tabular-nums">{formatINR(balance)}</span>
                 </div>
               )}
             </div>
@@ -249,9 +264,9 @@ function InvoiceDetail() {
           <Card className="p-5">
             <h3 className="font-semibold mb-3">Payment status</h3>
             <div className="text-2xl font-semibold tabular-nums">
-              {formatINR(inv.amount)}
+              {formatINR(balance)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Total payable</p>
+            <p className="text-xs text-muted-foreground mt-1">Balance due</p>
             <div className="mt-4">
               <StatusBadge status={inv.status} />
             </div>

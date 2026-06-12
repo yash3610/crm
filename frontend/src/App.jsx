@@ -14,11 +14,15 @@ import InvoiceDetails from "@/pages/InvoiceDetails";
 import Invoices from "@/pages/Invoices";
 import Login from "@/pages/Login";
 import NewInvoice from "@/pages/NewInvoice";
+import NewPurchase from "@/pages/NewPurchase";
+import NewQuotation from "@/pages/NewQuotation";
 import Notifications from "@/pages/Notifications";
 import Payments from "@/pages/Payments";
 import Products from "@/pages/Products";
+import PurchaseDetails from "@/pages/PurchaseDetails";
 import Purchases from "@/pages/Purchases";
 import Quotations from "@/pages/Quotations";
+import QuotationDetails from "@/pages/QuotationDetails";
 import Register from "@/pages/Register";
 import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
@@ -50,9 +54,13 @@ function App() {
             <Route path="invoices/new" element={<NewInvoice />} />
             <Route path="invoices/:id" element={<InvoiceDetails />} />
             <Route path="quotations" element={<Quotations />} />
+            <Route path="quotations/new" element={<NewQuotation />} />
+            <Route path="quotations/:id" element={<QuotationDetails />} />
             <Route path="payments" element={<Payments />} />
             <Route path="suppliers" element={<Suppliers />} />
             <Route path="purchases" element={<Purchases />} />
+            <Route path="purchases/new" element={<NewPurchase />} />
+            <Route path="purchases/:id" element={<PurchaseDetails />} />
             <Route path="expenses" element={<Expenses />} />
             <Route path="customers" element={<Customers />} />
             <Route path="products" element={<Products />} />

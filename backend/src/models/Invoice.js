@@ -7,8 +7,8 @@ const lineSchema = new mongoose.Schema(
     name: { type: String, required: true },
     qty: { type: Number, required: true, min: 1 },
     price: { type: Number, required: true, min: 0 },
-    gst: { type: Number, default: 0, min: 0 },
-    discount: { type: Number, default: 0, min: 0 },
+    gst: { type: Number, default: 0, min: 0, max: 100 },
+    discount: { type: Number, default: 0, min: 0, max: 100 },
   },
   { _id: false },
 );
@@ -25,6 +25,8 @@ const schema = new mongoose.Schema(
     subtotal: { type: Number, default: 0 },
     tax: { type: Number, default: 0 },
     amount: { type: Number, required: true, min: 0 },
+    paidAmount: { type: Number, default: 0, min: 0 },
+    stockPosted: { type: Boolean, default: false },
     status: {
       type: String,
       enum: ["draft", "pending", "paid", "overdue", "cancelled"],

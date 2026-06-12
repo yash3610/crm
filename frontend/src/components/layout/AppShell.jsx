@@ -47,6 +47,11 @@ const nav = [
     items: [
       { to: "/suppliers", label: "Suppliers", icon: Truck },
       { to: "/purchases", label: "Purchases", icon: Wallet },
+      {
+        to: "/purchases/new",
+        label: "Create Purchase Bill",
+        icon: FilePlus2,
+      },
       { to: "/expenses", label: "Expenses", icon: Wallet },
     ],
   },
