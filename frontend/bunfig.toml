@@ -1,0 +1,3 @@
+[install]
+# Ignore package versions published less than one day ago.
+minimumReleaseAge = 86400
