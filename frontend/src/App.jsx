@@ -43,6 +43,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
         <Route element={<ProtectedRoute />}>
+          <Route path="settings" element={<Settings />} />
           <Route element={<AppShell />}>
             <Route index element={<Dashboard />} />
             <Route path="invoices" element={<Invoices />} />
@@ -61,7 +62,6 @@ function App() {
             <Route path="users" element={<Users />} />
             <Route path="branches" element={<Branches />} />
             <Route path="notifications" element={<Notifications />} />
-            <Route path="settings" element={<Settings />} />
             <Route path="404" element={<NotFound />} />
             <Route path="*" element={<Navigate to="/404" replace />} />
           </Route>

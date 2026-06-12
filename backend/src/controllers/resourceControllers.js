@@ -14,13 +14,58 @@ import { createCrudController } from "./crudController.js";
 
 async function validatePaymentOwnership(payload, req) {
   if (payload.invoice && mongoose.isValidObjectId(payload.invoice)) {
-    const invoiceExists = await Invoice.exists({
+    const invoice = await Invoice.findOne({
       _id: payload.invoice,
       tenantId: req.tenantId,
     });
-    if (!invoiceExists) throw new ApiError(400, "Invalid invoice");
+    if (!invoice) throw new ApiError(400, "Invalid invoice");
+
+    const paid = await Payment.aggregate([
+      {
+        $match: {
+          tenantId: req.tenantId,
+          invoice: invoice._id,
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
+    const outstanding = Math.max(0, invoice.amount - (paid[0]?.total || 0));
+    const amount = Number(payload.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new ApiError(400, "Payment amount must be greater than zero");
+    }
+    if (amount > outstanding) {
+      throw new ApiError(
+        400,
+        `Payment cannot exceed outstanding amount of ${outstanding}`,
+      );
+    }
+
+    payload.invoiceNumber = invoice.number;
+    payload.customer = invoice.customerName;
   }
   return payload;
+}
+
+async function syncInvoicePaymentStatus(payment, req) {
+  if (!payment.invoice) return;
+
+  const [invoice, paid] = await Promise.all([
+    Invoice.findOne({ _id: payment.invoice, tenantId: req.tenantId }),
+    Payment.aggregate([
+      {
+        $match: {
+          tenantId: req.tenantId,
+          invoice: payment.invoice,
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]),
+  ]);
+  if (invoice && (paid[0]?.total || 0) >= invoice.amount) {
+    invoice.status = "paid";
+    await invoice.save();
+  }
 }
 
 export const customerController = createCrudController({
@@ -51,6 +96,7 @@ export const paymentController = createCrudController({
   searchFields: ["invoiceNumber", "customer", "reference"],
   transform: (item) => ({ ...item, invoice: item.invoiceNumber }),
   beforeCreate: validatePaymentOwnership,
+  afterCreate: syncInvoicePaymentStatus,
   beforeUpdate: validatePaymentOwnership,
 });
 

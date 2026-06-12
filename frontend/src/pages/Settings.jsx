@@ -1,511 +1,1535 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
-  PageHeader,
-  Card,
-  Button,
-  Input,
-  Select,
-} from "@/components/common/Primitives";
-import { Building, Receipt, Bell, CreditCard, Palette } from "lucide-react";
-import { cn } from "@/lib/utils";
+  ArrowLeft,
+  BadgeIndianRupee,
+  BellRing,
+  BriefcaseBusiness,
+  Building2,
+  Check,
+  ChevronDown,
+  CircleHelp,
+  FileText,
+  Mail,
+  MessageCircle,
+  Palette,
+  Plus,
+  Printer,
+  Receipt,
+  Save,
+  Share2,
+  ShieldCheck,
+  UserRound,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
+
+import {
+  Badge,
+  Button,
+  Card,
+  Input,
+  Modal,
+  Select,
+  StatusBadge,
+} from "@/components/common/Primitives";
+import { useAuth } from "@/context/AuthContext";
+import { useApiList } from "@/hooks/useApiList";
 import { api } from "@/lib/api";
-import { downloadCsv } from "@/lib/downloadCsv";
+import { cn } from "@/lib/utils";
+
 const tabs = [
-  { id: "company", label: "Company", icon: Building },
-  { id: "tax", label: "Tax & GST", icon: Receipt },
-  { id: "billing", label: "Billing", icon: CreditCard },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "account", label: "Account", icon: UserRound },
+  { id: "business", label: "Manage Business", icon: BriefcaseBusiness },
+  { id: "invoice", label: "Invoice Settings", icon: Palette },
+  { id: "print", label: "Print Settings", icon: Printer },
+  { id: "users", label: "Manage Users", icon: Users },
+  { id: "reminders", label: "Reminders", icon: BellRing },
+  { id: "caSharing", label: "CA Reports Sharing", icon: Share2 },
+  { id: "pricing", label: "Pricing", icon: BadgeIndianRupee },
+  { id: "support", label: "Help & Support", icon: CircleHelp },
 ];
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <div className="mt-1.5">{children}</div>
-    </label>
-  );
-}
-function SettingsPage() {
-  const [tab, setTab] = useState("company");
-  const [settings, setSettings] = useState({ company: {}, tax: {} });
 
-  useEffect(() => {
-    api
-      .get("/settings")
-      .then((data) =>
-        setSettings({
-          company: data.company || {},
-          tax: data.tax || {},
-        }),
-      )
-      .catch((error) => toast.error(error.message));
-  }, []);
+const defaults = {
+  account: { name: "", phone: "", email: "" },
+  business: {
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    state: "Maharashtra",
+    city: "",
+    pincode: "",
+    businessType: "Retail",
+    industry: "General",
+    registrationType: "Proprietorship",
+    gstRegistered: true,
+    gstin: "",
+    pan: "",
+    website: "",
+    eInvoicing: false,
+    tds: false,
+    tcs: false,
+  },
+  invoice: {
+    theme: "modern",
+    accent: "#4f46e5",
+    showBalance: true,
+    showDescription: true,
+    showPhone: true,
+    showTime: false,
+    showHsn: true,
+    showDiscount: true,
+    terms: "Payment is due within 14 days.",
+  },
+  print: {
+    mode: "a4",
+    theme: "compact",
+    paperSize: "3",
+    showBalance: true,
+    showDescription: true,
+    showTime: false,
+    showTaxBreakup: true,
+    showSignature: true,
+  },
+  reminders: {
+    sendTransactionMessage: true,
+    paymentAlerts: true,
+    beforeDue: true,
+    beforeDueDays: "3",
+    onDueDate: true,
+    afterDue: true,
+    afterDueDays: "2",
+    dailySummary: false,
+  },
+  caSharing: {
+    enabled: false,
+    name: "",
+    phone: "",
+    email: "",
+    frequency: "monthly",
+    sendGstr1: true,
+    sendGstr3b: true,
+    sendSales: true,
+  },
+  pricing: { plan: "premium", cycle: "yearly" },
+};
 
-  const saveSection = async (section, event) => {
-    event.preventDefault();
-    const values = Object.fromEntries(new FormData(event.currentTarget));
-    try {
-      await api.put("/settings", { [section]: values });
-      setSettings((current) => ({ ...current, [section]: values }));
-      toast.success(
-        `${section === "tax" ? "Tax settings" : "Company details"} saved`,
-      );
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
-  return (
-    <>
-      <PageHeader title="Settings" subtitle="Company, tax and preferences" />
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
-        <Card className="p-2 h-fit">
-          <nav className="space-y-0.5">
-            {tabs.map((t) => {
-              const Icon = t.icon;
-              const active = tab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-accent text-foreground",
-                  )}
-                >
-                  <Icon className="h-4 w-4" /> {t.label}
-                </button>
-              );
-            })}
-          </nav>
-        </Card>
-
-        <Card className="p-6">
-          {tab === "company" && (
-            <form
-              key={JSON.stringify(settings.company)}
-              onSubmit={(event) => saveSection("company", event)}
-              className="space-y-5"
-            >
-              <h3 className="font-semibold">Company profile</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Legal name">
-                  <Input
-                    name="name"
-                    defaultValue={settings.company.name || ""}
-                  />
-                </Field>
-                <Field label="Display name">
-                  <Input
-                    name="displayName"
-                    defaultValue={settings.company.displayName || ""}
-                  />
-                </Field>
-                <Field label="Email">
-                  <Input
-                    name="email"
-                    type="email"
-                    defaultValue={settings.company.email || ""}
-                  />
-                </Field>
-                <Field label="Phone">
-                  <Input
-                    name="phone"
-                    defaultValue={settings.company.phone || ""}
-                  />
-                </Field>
-                <Field label="Address">
-                  <Input
-                    name="address"
-                    defaultValue={settings.company.address || ""}
-                  />
-                </Field>
-                <Field label="Country">
-                  <Select
-                    name="country"
-                    defaultValue={settings.company.country || "IN"}
-                  >
-                    <option value="IN">India</option>
-                    <option value="US">United States</option>
-                    <option value="UK">United Kingdom</option>
-                  </Select>
-                </Field>
-              </div>
-              <div className="flex justify-end">
-                <Button type="submit">Save changes</Button>
-              </div>
-            </form>
-          )}
-          {tab === "tax" && (
-            <form
-              key={JSON.stringify(settings.tax)}
-              onSubmit={(event) => saveSection("tax", event)}
-              className="space-y-5"
-            >
-              <h3 className="font-semibold">Tax & GST</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="GSTIN">
-                  <Input name="gstin" defaultValue={settings.tax.gstin || ""} />
-                </Field>
-                <Field label="PAN">
-                  <Input name="pan" defaultValue={settings.tax.pan || ""} />
-                </Field>
-                <Field label="Default GST rate">
-                  <Select
-                    name="defaultGstRate"
-                    defaultValue={settings.tax.defaultGstRate || "18"}
-                  >
-                    <option>0</option>
-                    <option>5</option>
-                    <option>12</option>
-                    <option>18</option>
-                    <option>28</option>
-                  </Select>
-                </Field>
-                <Field label="Place of supply">
-                  <Input
-                    name="placeOfSupply"
-                    defaultValue={settings.tax.placeOfSupply || ""}
-                  />
-                </Field>
-              </div>
-              <div className="flex justify-end">
-                <Button type="submit">Save changes</Button>
-              </div>
-            </form>
-          )}
-          {tab === "billing" && <BillingTab />}
-          {tab === "notifications" && (
-            <div className="space-y-4">
-              <h3 className="font-semibold">Notification preferences</h3>
-              {[
-                "Email me when invoice is paid",
-                "Alert me on overdue invoices",
-                "Daily summary digest",
-                "Low-stock alerts",
-                "New customer signups",
-              ].map((l, i) => (
-                <label
-                  key={l}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border"
-                >
-                  <span className="text-sm">{l}</span>
-                  <input
-                    type="checkbox"
-                    defaultChecked={i < 4}
-                    className="h-4 w-4 rounded border-border text-primary"
-                  />
-                </label>
-              ))}
-            </div>
-          )}
-          {tab === "appearance" && (
-            <div className="space-y-5">
-              <h3 className="font-semibold">Appearance</h3>
-              <p className="text-sm text-muted-foreground">
-                Toggle dark mode from the top bar.
-              </p>
-              <Field label="Accent color">
-                <Select defaultValue="blue">
-                  <option value="blue">Indigo</option>
-                  <option value="violet">Violet</option>
-                  <option value="green">Emerald</option>
-                  <option value="rose">Rose</option>
-                </Select>
-              </Field>
-              <Field label="Density">
-                <Select defaultValue="comfortable">
-                  <option value="compact">Compact</option>
-                  <option value="comfortable">Comfortable</option>
-                  <option value="spacious">Spacious</option>
-                </Select>
-              </Field>
-            </div>
-          )}
-        </Card>
-      </div>
-    </>
-  );
-}
-const PLANS = [
+const plans = [
   {
     id: "starter",
     name: "Starter",
-    price: 0,
-    tagline: "For getting started",
-    features: [
-      "1 user",
-      "50 invoices / month",
-      "Basic reports",
-      "Email support",
-    ],
+    monthly: 0,
+    yearly: 0,
+    description: "For small businesses getting started",
+    features: ["1 user", "50 invoices / month", "Basic reports"],
   },
   {
     id: "growth",
     name: "Growth",
-    price: 999,
-    tagline: "For growing teams",
-    features: [
-      "5 users",
-      "Unlimited invoices",
-      "GST returns",
-      "Inventory & barcodes",
-      "Priority email support",
-    ],
+    monthly: 999,
+    yearly: 9990,
+    description: "For growing teams and multiple branches",
+    features: ["5 users", "Unlimited invoices", "GST reports", "Inventory"],
   },
   {
     id: "premium",
     name: "Premium",
-    price: 2499,
-    tagline: "Best for businesses",
+    monthly: 2499,
+    yearly: 24990,
+    description: "Advanced control for established businesses",
     features: [
       "Unlimited users",
       "Multi-branch",
-      "Advanced analytics",
-      "API access",
-      "24×7 phone support",
+      "Custom invoice themes",
+      "CA sharing",
     ],
   },
 ];
-const billingHistory = [
-  {
-    id: "B-2026-06",
-    date: "Jun 1, 2026",
-    plan: "Premium",
-    amount: 2499,
-    status: "paid",
-  },
-  {
-    id: "B-2026-05",
-    date: "May 1, 2026",
-    plan: "Premium",
-    amount: 2499,
-    status: "paid",
-  },
-  {
-    id: "B-2026-04",
-    date: "Apr 1, 2026",
-    plan: "Premium",
-    amount: 2499,
-    status: "paid",
-  },
-  {
-    id: "B-2026-03",
-    date: "Mar 1, 2026",
-    plan: "Growth",
-    amount: 999,
-    status: "paid",
-  },
+
+const sampleItems = [
+  { name: "Premium Widget", qty: 2, rate: 1499, tax: 18 },
+  { name: "Industrial Gear", qty: 1, rate: 899, tax: 18 },
+  { name: "Stretch Film Roll", qty: 3, rate: 320, tax: 12 },
 ];
-function BillingTab() {
-  const [current, setCurrent] = useState("premium");
-  const [method, setMethod] = useState("card");
-  const plan = PLANS.find((p) => p.id === current);
+
+function readImage(file, onLoad) {
+  if (!file) return;
+  if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+    toast.error("Choose a JPG or PNG image smaller than 2 MB");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => onLoad(reader.result);
+  reader.readAsDataURL(file);
+}
+
+function SettingField({ label, hint, children, className }) {
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="font-semibold">Subscription & billing</h3>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Manage your plan, payment method and invoices
-        </p>
-      </div>
+    <label className={cn("block", className)}>
+      <span className="text-xs font-medium text-foreground">{label}</span>
+      {hint && (
+        <span className="ml-2 text-[11px] text-muted-foreground">{hint}</span>
+      )}
+      <div className="mt-1.5">{children}</div>
+    </label>
+  );
+}
 
-      <div className="rounded-xl border border-border p-5 bg-gradient-to-br from-primary/10 to-transparent">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="text-xs font-medium text-primary uppercase tracking-wide">
-              Current plan · {plan.name}
-            </div>
-            <div className="text-2xl font-semibold mt-1">
-              {plan.price === 0
-                ? "Free"
-                : `₹${plan.price.toLocaleString("en-IN")} / month`}
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Renews July 1, 2026 · {plan.tagline}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-xs text-muted-foreground">Invoices used</div>
-              <div className="text-sm font-semibold">218 / Unlimited</div>
-            </div>
-            <div className="h-12 w-px bg-border hidden sm:block" />
-            <div className="text-right">
-              <div className="text-xs text-muted-foreground">Users</div>
-              <div className="text-sm font-semibold">5 / Unlimited</div>
-            </div>
-          </div>
-        </div>
-      </div>
+function Toggle({ checked, onChange, label, description }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center justify-between gap-4 rounded-xl border border-border p-4 text-left transition-colors hover:bg-muted/40"
+    >
+      <span>
+        <span className="block text-sm font-medium">{label}</span>
+        {description && (
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            {description}
+          </span>
+        )}
+      </span>
+      <span
+        className={cn(
+          "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+          checked ? "bg-primary" : "bg-muted-foreground/30",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+            checked ? "translate-x-5" : "translate-x-0.5",
+          )}
+        />
+      </span>
+    </button>
+  );
+}
 
+function SectionHeader({ title, subtitle, onSave, saving, action }) {
+  return (
+    <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h4 className="text-sm font-semibold mb-3">Choose a plan</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {PLANS.map((p) => {
-            const active = p.id === current;
-            return (
-              <div
-                key={p.id}
-                className={cn(
-                  "rounded-xl border p-5 transition-all",
-                  active
-                    ? "border-primary ring-2 ring-primary/20 bg-primary/5"
-                    : "border-border hover:border-primary/40",
-                )}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold">{p.name}</div>
-                  {active && (
-                    <span className="text-[10px] uppercase tracking-wide font-semibold bg-primary text-primary-foreground rounded-full px-2 py-0.5">
-                      Active
-                    </span>
-                  )}
-                </div>
-                <div className="text-2xl font-semibold">
-                  {p.price === 0
-                    ? "Free"
-                    : `₹${p.price.toLocaleString("en-IN")}`}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {p.price > 0 && " / mo"}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {p.tagline}
-                </p>
-                <ul className="mt-4 space-y-1.5 text-sm">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <span className="text-primary mt-0.5">✓</span>
-                      <span className="text-muted-foreground">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  className="w-full mt-4"
-                  variant={active ? "outline" : "primary"}
-                  disabled={active}
-                  onClick={() => {
-                    setCurrent(p.id);
-                    toast.success(`Switched to ${p.name} plan`);
-                  }}
-                >
-                  {active
-                    ? "Current plan"
-                    : p.price >
-                        (PLANS.find((x) => x.id === current)?.price ?? 0)
-                      ? "Upgrade"
-                      : "Switch"}
-                </Button>
-              </div>
-            );
-          })}
-        </div>
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
-
-      <div>
-        <h4 className="text-sm font-semibold mb-3">Payment method</h4>
-        <div className="space-y-2">
-          {[
-            { id: "card", label: "Visa ending 4242", sub: "Expires 09/27" },
-            { id: "upi", label: "UPI · rahul@hdfc", sub: "Primary UPI" },
-            { id: "bank", label: "HDFC Bank ****8821", sub: "NEFT/IMPS" },
-          ].map((m) => (
-            <label
-              key={m.id}
-              className={cn(
-                "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors",
-                method === m.id
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:bg-accent",
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="pm"
-                  checked={method === m.id}
-                  onChange={() => setMethod(m.id)}
-                  className="h-4 w-4 text-primary"
-                />
-                <div>
-                  <div className="text-sm font-medium">{m.label}</div>
-                  <div className="text-xs text-muted-foreground">{m.sub}</div>
-                </div>
-              </div>
-              {method === m.id && (
-                <span className="text-xs text-primary font-medium">
-                  Default
-                </span>
-              )}
-            </label>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toast.info("Payment gateway is not configured yet")}
-          >
-            + Add new method
+      <div className="flex gap-2">
+        {action}
+        {onSave && (
+          <Button onClick={onSave} disabled={saving}>
+            <Save className="h-4 w-4" />
+            {saving ? "Saving..." : "Save changes"}
           </Button>
-        </div>
-      </div>
-
-      <div>
-        <h4 className="text-sm font-semibold mb-3">Billing history</h4>
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="text-left px-4 py-2.5">Invoice</th>
-                <th className="text-left px-4 py-2.5">Date</th>
-                <th className="text-left px-4 py-2.5">Plan</th>
-                <th className="text-right px-4 py-2.5">Amount</th>
-                <th className="text-right px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {billingHistory.map((b) => (
-                <tr key={b.id} className="border-t border-border">
-                  <td className="px-4 py-3 font-medium">{b.id}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{b.date}</td>
-                  <td className="px-4 py-3">{b.plan}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    ₹{b.amount.toLocaleString("en-IN")}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="inline-flex items-center rounded-full bg-success/15 text-success border border-success/20 px-2 py-0.5 text-[11px] font-medium">
-                      Paid
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        downloadCsv(`${b.id}-receipt.csv`, [
-                          {
-                            invoice: b.id,
-                            date: b.date,
-                            plan: b.plan,
-                            amount: b.amount,
-                            status: b.status,
-                          },
-                        ])
-                      }
-                    >
-                      Receipt
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function InvoicePreview({ business, invoice, compact = false }) {
+  const subtotal = sampleItems.reduce(
+    (total, item) => total + item.qty * item.rate,
+    0,
+  );
+  const tax = sampleItems.reduce(
+    (total, item) => total + (item.qty * item.rate * item.tax) / 100,
+    0,
+  );
+
+  return (
+    <div
+      className={cn(
+        "mx-auto bg-white text-slate-900 shadow-sm",
+        compact
+          ? "w-[310px] min-h-[620px] p-5 text-[11px]"
+          : "w-full max-w-[760px] min-h-[760px] p-8 text-sm",
+      )}
+      style={{ borderTop: `5px solid ${invoice.accent}` }}
+    >
+      <div className="flex items-start justify-between border-b border-slate-200 pb-5">
+        <div>
+          <div className="flex items-center gap-3">
+            {business.logo && (
+              <img
+                src={business.logo}
+                alt=""
+                className="h-10 w-10 object-contain"
+              />
+            )}
+            <div
+              className="text-xl font-bold"
+              style={{ color: invoice.accent }}
+            >
+              {business.name || "Your Business"}
+            </div>
+          </div>
+          {invoice.showPhone && (
+            <div>{business.phone || "+91 90000 00000"}</div>
+          )}
+          <div>{business.address || "Business address"}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-lg font-bold">TAX INVOICE</div>
+          <div>INV-2026-1008</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-6 border-b border-slate-200 py-5">
+        <div>
+          <div className="text-xs uppercase text-slate-500">Bill to</div>
+          <div className="font-semibold">Acme Traders</div>
+          <div>Mumbai, Maharashtra</div>
+          {invoice.showPhone && <div>+91 98101 22334</div>}
+        </div>
+        <div className="text-right">
+          <div>Invoice date: 12 Jun 2026</div>
+          <div>Due date: 26 Jun 2026</div>
+          {invoice.showTime && <div>Time: 01:20 PM</div>}
+        </div>
+      </div>
+      <table className="mt-5 w-full">
+        <thead>
+          <tr className="border-b border-slate-300 text-left">
+            <th className="py-2">Item</th>
+            {invoice.showHsn && <th className="py-2">HSN</th>}
+            <th className="py-2 text-right">Qty</th>
+            <th className="py-2 text-right">Rate</th>
+            <th className="py-2 text-right">Tax</th>
+            <th className="py-2 text-right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sampleItems.map((item, index) => (
+            <tr key={item.name} className="border-b border-slate-100">
+              <td className="py-3">
+                <div className="font-medium">{item.name}</div>
+                {invoice.showDescription && (
+                  <div className="text-slate-500">Product description</div>
+                )}
+              </td>
+              {invoice.showHsn && <td>{`84${index + 10}`}</td>}
+              <td className="text-right">{item.qty}</td>
+              <td className="text-right">
+                {item.rate.toLocaleString("en-IN")}
+              </td>
+              <td className="text-right">{item.tax}%</td>
+              <td className="text-right">
+                {(item.qty * item.rate).toLocaleString("en-IN")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-6 ml-auto w-64 space-y-2">
+        <div className="flex justify-between">
+          <span>Subtotal</span>
+          <span>INR {subtotal.toLocaleString("en-IN")}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>GST</span>
+          <span>INR {tax.toLocaleString("en-IN")}</span>
+        </div>
+        <div className="flex justify-between border-t border-slate-300 pt-2 font-bold">
+          <span>Total</span>
+          <span>INR {(subtotal + tax).toLocaleString("en-IN")}</span>
+        </div>
+        {invoice.showBalance && (
+          <div className="flex justify-between text-slate-600">
+            <span>Balance due</span>
+            <span>INR {(subtotal + tax).toLocaleString("en-IN")}</span>
+          </div>
+        )}
+      </div>
+      <div className="mt-10 border-t border-slate-200 pt-4 text-slate-600">
+        <div className="font-semibold text-slate-900">Terms & conditions</div>
+        <div>{invoice.terms}</div>
+        {business.signature && (
+          <div className="mt-6 ml-auto w-36 text-center">
+            <img
+              src={business.signature}
+              alt=""
+              className="mx-auto h-12 max-w-full object-contain"
+            />
+            <div className="border-t border-slate-400 pt-1">
+              Authorized signatory
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SettingsPage() {
+  const { user } = useAuth();
+  const { rows: users, create: createUser } = useApiList("/users", []);
+  const [activeTab, setActiveTab] = useState("account");
+  const [settings, setSettings] = useState(defaults);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [userModal, setUserModal] = useState(false);
+  const [caModal, setCaModal] = useState(false);
+  const [userForm, setUserForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "Sales",
+    branch: "Head Office",
+    status: "active",
+  });
+
+  useEffect(() => {
+    api
+      .get("/settings")
+      .then((data) => {
+        setSettings((current) => ({
+          ...current,
+          ...data,
+          account: {
+            ...current.account,
+            name: user?.name || "",
+            email: user?.email || "",
+            ...data.account,
+          },
+          business: {
+            ...current.business,
+            ...(data.company || {}),
+            ...(data.tax || {}),
+            ...data.business,
+          },
+        }));
+      })
+      .catch((error) => toast.error(error.message))
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  const section = settings[activeTab] || {};
+  const update = (key, value) =>
+    setSettings((current) => ({
+      ...current,
+      [activeTab]: { ...current[activeTab], [key]: value },
+    }));
+  const updateSection = (name, key, value) =>
+    setSettings((current) => ({
+      ...current,
+      [name]: { ...current[name], [key]: value },
+    }));
+
+  const save = async (name = activeTab, override) => {
+    try {
+      setSaving(true);
+      const value = override || settings[name];
+      await api.put("/settings", { [name]: value });
+      setSettings((current) => ({ ...current, [name]: value }));
+      toast.success(
+        `${tabs.find((item) => item.id === name)?.label || "Settings"} saved`,
+      );
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inviteUser = async (event) => {
+    event.preventDefault();
+    try {
+      await createUser(userForm);
+      toast.success(`User ${userForm.email} added`);
+      setUserModal(false);
+      setUserForm({
+        name: "",
+        email: "",
+        password: "",
+        role: "Sales",
+        branch: "Head Office",
+        status: "active",
+      });
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="py-24 text-center text-muted-foreground">
+        Loading settings...
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex h-dvh overflow-hidden bg-background">
+        <aside className="hidden h-dvh w-64 shrink-0 flex-col border-r border-border bg-card lg:flex">
+          <div className="shrink-0 border-b border-border p-4">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                {user?.name
+                  ?.split(" ")
+                  .map((part) => part[0])
+                  .slice(0, 2)
+                  .join("")}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">
+                  {user?.name}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {user?.tenant?.name}
+                </div>
+              </div>
+            </div>
+            <Link
+              to="/"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Link>
+          </div>
+          <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+            {tabs.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                    activeTab === item.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+          <div className="shrink-0 border-t border-border px-4 py-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-success" />
+              Tenant-secured workspace
+            </div>
+            <div className="mt-2">BillPro ERP Suite</div>
+          </div>
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-4 lg:hidden">
+            <Link
+              to="/"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border hover:bg-muted"
+              aria-label="Back to Dashboard"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <div>
+              <div className="font-semibold">Settings</div>
+              <div className="text-xs text-muted-foreground">
+                {tabs.find((item) => item.id === activeTab)?.label}
+              </div>
+            </div>
+          </header>
+
+          <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-card p-2 lg:hidden">
+            {tabs.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={cn(
+                    "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium",
+                    activeTab === item.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/50 text-muted-foreground",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+
+          <main className="min-w-0 flex-1 overflow-y-auto bg-background">
+            {activeTab === "account" && (
+              <>
+                <SectionHeader
+                  title="Account settings"
+                  subtitle="Your profile and subscription information"
+                  onSave={() => save()}
+                  saving={saving}
+                />
+                <div className="space-y-6 p-5">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <SettingField label="Full name">
+                      <Input
+                        value={section.name}
+                        onChange={(e) => update("name", e.target.value)}
+                      />
+                    </SettingField>
+                    <SettingField label="Mobile number">
+                      <Input
+                        value={section.phone}
+                        onChange={(e) => update("phone", e.target.value)}
+                      />
+                    </SettingField>
+                    <SettingField label="Email">
+                      <Input
+                        type="email"
+                        value={section.email}
+                        onChange={(e) => update("email", e.target.value)}
+                      />
+                    </SettingField>
+                  </div>
+                  <Card className="p-5">
+                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                      <div>
+                        <Badge tone="primary">Current plan</Badge>
+                        <h3 className="mt-2 text-xl font-semibold capitalize">
+                          {settings.pricing.plan} plan
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Workspace: {user?.tenant?.name}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => setActiveTab("pricing")}
+                      >
+                        Manage subscription
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
+              </>
+            )}
+
+            {activeTab === "business" && (
+              <>
+                <SectionHeader
+                  title="Business settings"
+                  subtitle="Company, registration and tax details shown on invoices"
+                  onSave={() => save()}
+                  saving={saving}
+                />
+                <div className="space-y-6 p-5 sm:p-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {[
+                      ["logo", "Business logo", Building2],
+                      ["signature", "Authorized signature", Receipt],
+                    ].map(([key, label, Icon]) => (
+                      <label
+                        key={key}
+                        className="flex min-h-24 cursor-pointer items-center gap-4 rounded-xl border border-dashed border-border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-primary/5"
+                      >
+                        <div className="grid h-12 w-14 shrink-0 place-items-center rounded-lg bg-primary/10">
+                          {section[key] ? (
+                            <img
+                              src={section[key]}
+                              alt=""
+                              className="h-10 w-12 object-contain"
+                            />
+                          ) : (
+                            <Icon className="h-7 w-7 text-primary" />
+                          )}
+                        </div>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold">
+                            {label}
+                          </span>
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            JPG or PNG, maximum 2 MB
+                          </span>
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          className="hidden"
+                          onChange={(event) =>
+                            readImage(event.target.files?.[0], (value) =>
+                              update(key, value),
+                            )
+                          }
+                        />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="grid items-start gap-6 xl:grid-cols-2">
+                    <Card className="p-5 sm:p-6">
+                      <div className="mb-5">
+                        <h3 className="font-semibold">Business information</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Contact and address details used across documents
+                        </p>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <SettingField
+                          label="Business name"
+                          className="sm:col-span-2"
+                        >
+                          <Input
+                            value={section.name}
+                            onChange={(e) => update("name", e.target.value)}
+                          />
+                        </SettingField>
+                        <SettingField label="Company phone">
+                          <Input
+                            value={section.phone}
+                            onChange={(e) => update("phone", e.target.value)}
+                          />
+                        </SettingField>
+                        <SettingField label="Company email">
+                          <Input
+                            type="email"
+                            value={section.email}
+                            onChange={(e) => update("email", e.target.value)}
+                          />
+                        </SettingField>
+                        <SettingField
+                          label="Billing address"
+                          className="sm:col-span-2"
+                        >
+                          <Input
+                            value={section.address}
+                            onChange={(e) => update("address", e.target.value)}
+                          />
+                        </SettingField>
+                        <SettingField label="State">
+                          <Input
+                            value={section.state}
+                            onChange={(e) => update("state", e.target.value)}
+                          />
+                        </SettingField>
+                        <SettingField label="City">
+                          <Input
+                            value={section.city}
+                            onChange={(e) => update("city", e.target.value)}
+                          />
+                        </SettingField>
+                        <SettingField label="Pincode">
+                          <Input
+                            value={section.pincode}
+                            onChange={(e) => update("pincode", e.target.value)}
+                          />
+                        </SettingField>
+                        <SettingField label="Website">
+                          <Input
+                            value={section.website}
+                            onChange={(e) => update("website", e.target.value)}
+                          />
+                        </SettingField>
+                      </div>
+                    </Card>
+
+                    <Card className="p-5 sm:p-6">
+                      <div className="mb-5">
+                        <h3 className="font-semibold">Registration & tax</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Business classification and statutory preferences
+                        </p>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <SettingField label="Business type">
+                          <Select
+                            className="w-full"
+                            value={section.businessType}
+                            onChange={(e) =>
+                              update("businessType", e.target.value)
+                            }
+                          >
+                            <option>Retail</option>
+                            <option>Wholesale</option>
+                            <option>Service</option>
+                            <option>Manufacturing</option>
+                          </Select>
+                        </SettingField>
+                        <SettingField label="Industry type">
+                          <Select
+                            className="w-full"
+                            value={section.industry}
+                            onChange={(e) => update("industry", e.target.value)}
+                          >
+                            <option>General</option>
+                            <option>Electronics</option>
+                            <option>Textiles</option>
+                            <option>Food & Beverage</option>
+                            <option>Professional Services</option>
+                          </Select>
+                        </SettingField>
+                        <SettingField
+                          label="Registration type"
+                          className="sm:col-span-2"
+                        >
+                          <Select
+                            className="w-full"
+                            value={section.registrationType}
+                            onChange={(e) =>
+                              update("registrationType", e.target.value)
+                            }
+                          >
+                            <option>Proprietorship</option>
+                            <option>Partnership</option>
+                            <option>Private Limited Company</option>
+                            <option>LLP</option>
+                          </Select>
+                        </SettingField>
+                        <SettingField label="PAN number">
+                          <Input
+                            value={section.pan}
+                            onChange={(e) =>
+                              update("pan", e.target.value.toUpperCase())
+                            }
+                          />
+                        </SettingField>
+                        <SettingField label="GSTIN">
+                          <Input
+                            value={section.gstin}
+                            onChange={(e) =>
+                              update("gstin", e.target.value.toUpperCase())
+                            }
+                          />
+                        </SettingField>
+                      </div>
+                      <div className="mt-5 space-y-3">
+                        <Toggle
+                          checked={section.gstRegistered}
+                          onChange={(value) => update("gstRegistered", value)}
+                          label="GST registered business"
+                        />
+                        <Toggle
+                          checked={section.eInvoicing}
+                          onChange={(value) => update("eInvoicing", value)}
+                          label="Enable e-Invoicing"
+                          description="Prepare invoices for government e-invoice integration"
+                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Toggle
+                            checked={section.tds}
+                            onChange={(value) => update("tds", value)}
+                            label="Enable TDS"
+                          />
+                          <Toggle
+                            checked={section.tcs}
+                            onChange={(value) => update("tcs", value)}
+                            label="Enable TCS"
+                          />
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "invoice" && (
+              <>
+                <SectionHeader
+                  title="Invoice settings"
+                  subtitle="Choose the invoice appearance and visible information"
+                  onSave={() => save()}
+                  saving={saving}
+                />
+                <div className="grid bg-muted/20 xl:grid-cols-[minmax(0,1fr)_380px]">
+                  <div className="max-h-[760px] overflow-auto p-6">
+                    <InvoicePreview
+                      business={settings.business}
+                      invoice={section}
+                    />
+                  </div>
+                  <div className="space-y-5 border-t border-border bg-card p-5 xl:border-l xl:border-t-0">
+                    <div>
+                      <h3 className="font-semibold">Themes</h3>
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {["modern", "classic", "minimal"].map((theme) => (
+                          <button
+                            type="button"
+                            key={theme}
+                            onClick={() => update("theme", theme)}
+                            className={cn(
+                              "rounded-lg border p-3 text-xs capitalize",
+                              section.theme === theme
+                                ? "border-primary bg-primary/5 text-primary"
+                                : "border-border",
+                            )}
+                          >
+                            <FileText className="mx-auto mb-2 h-7 w-7" />
+                            {theme}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Accent color</h3>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {[
+                          "#111827",
+                          "#4f46e5",
+                          "#0f766e",
+                          "#b91c1c",
+                          "#c0841a",
+                          "#7e22ce",
+                        ].map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => update("accent", color)}
+                            className="grid h-9 w-9 place-items-center rounded-lg"
+                            style={{ backgroundColor: color }}
+                          >
+                            {section.accent === color && (
+                              <Check className="h-4 w-4 text-white" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {[
+                      ["showBalance", "Show party balance"],
+                      ["showDescription", "Show item description"],
+                      ["showPhone", "Show phone number"],
+                      ["showTime", "Show invoice time"],
+                      ["showHsn", "Show HSN/SAC column"],
+                      ["showDiscount", "Show discount column"],
+                    ].map(([key, label]) => (
+                      <Toggle
+                        key={key}
+                        checked={section[key]}
+                        onChange={(value) => update(key, value)}
+                        label={label}
+                      />
+                    ))}
+                    <SettingField label="Terms & conditions">
+                      <textarea
+                        className="min-h-24 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                        value={section.terms}
+                        onChange={(e) => update("terms", e.target.value)}
+                      />
+                    </SettingField>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "print" && (
+              <>
+                <SectionHeader
+                  title="Print settings"
+                  subtitle="Configure A4 and thermal invoice printing"
+                  onSave={() => save()}
+                  saving={saving}
+                />
+                <div className="grid bg-muted/20 xl:grid-cols-[minmax(0,1fr)_380px]">
+                  <div className="max-h-[760px] overflow-auto p-6">
+                    <InvoicePreview
+                      business={settings.business}
+                      invoice={{
+                        ...settings.invoice,
+                        showBalance: section.showBalance,
+                        showDescription: section.showDescription,
+                        showTime: section.showTime,
+                      }}
+                      compact={section.mode === "thermal"}
+                    />
+                  </div>
+                  <div className="space-y-4 border-t border-border bg-card p-5 xl:border-l xl:border-t-0">
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        ["a4", "A4 Invoice"],
+                        ["thermal", "Thermal"],
+                      ].map(([value, label]) => (
+                        <Button
+                          key={value}
+                          variant={
+                            section.mode === value ? "primary" : "outline"
+                          }
+                          onClick={() => update("mode", value)}
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                    <SettingField label="Print theme">
+                      <Select
+                        value={section.theme}
+                        onChange={(e) => update("theme", e.target.value)}
+                      >
+                        <option value="compact">Compact</option>
+                        <option value="advanced">Advanced</option>
+                        <option value="simple">Simple</option>
+                        <option value="classic">Classic</option>
+                      </Select>
+                    </SettingField>
+                    {section.mode === "thermal" && (
+                      <SettingField label="Paper size">
+                        <Select
+                          value={section.paperSize}
+                          onChange={(e) => update("paperSize", e.target.value)}
+                        >
+                          <option value="2">2 inch</option>
+                          <option value="3">3 inch</option>
+                        </Select>
+                      </SettingField>
+                    )}
+                    {[
+                      ["showBalance", "Show party balance"],
+                      ["showDescription", "Show item description"],
+                      ["showTime", "Show time on invoices"],
+                      ["showTaxBreakup", "Show tax breakup"],
+                      ["showSignature", "Show signature area"],
+                    ].map(([key, label]) => (
+                      <Toggle
+                        key={key}
+                        checked={section[key]}
+                        onChange={(value) => update(key, value)}
+                        label={label}
+                      />
+                    ))}
+                    <div className="rounded-xl border border-border p-4 text-sm">
+                      <div className="font-medium">Logo & signature</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        These are managed in Business Settings and automatically
+                        included in invoice and print previews.
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => setActiveTab("business")}
+                      >
+                        Open business settings
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "users" && (
+              <>
+                <SectionHeader
+                  title="Manage users"
+                  subtitle="Team members, roles and workspace access"
+                  action={
+                    <Button onClick={() => setUserModal(true)}>
+                      <Plus className="h-4 w-4" /> Add user
+                    </Button>
+                  }
+                />
+                <div className="space-y-5 p-5">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Card className="p-4">
+                      <div className="text-sm text-muted-foreground">
+                        Number of users
+                      </div>
+                      <div className="mt-1 text-3xl font-semibold">
+                        {users.length}
+                      </div>
+                    </Card>
+                    <Card className="p-4">
+                      <div className="text-sm text-muted-foreground">
+                        Active users
+                      </div>
+                      <div className="mt-1 text-3xl font-semibold">
+                        {
+                          users.filter((item) => item.status === "active")
+                            .length
+                        }
+                      </div>
+                    </Card>
+                  </div>
+                  <div className="overflow-x-auto rounded-xl border border-border">
+                    <table className="w-full min-w-[720px] text-sm">
+                      <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-3">User</th>
+                          <th className="px-4 py-3">Role</th>
+                          <th className="px-4 py-3">Branch</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3">Last seen</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((item) => (
+                          <tr key={item.id} className="border-t border-border">
+                            <td className="px-4 py-3">
+                              <div className="font-medium">{item.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {item.email}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge tone="info">{item.role}</Badge>
+                            </td>
+                            <td className="px-4 py-3">{item.branch}</td>
+                            <td className="px-4 py-3">
+                              <StatusBadge status={item.status} />
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {item.lastSeen
+                                ? new Date(item.lastSeen).toLocaleString(
+                                    "en-IN",
+                                  )
+                                : "Never"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "reminders" && (
+              <>
+                <SectionHeader
+                  title="Reminder settings"
+                  subtitle="Control payment and transaction reminders"
+                  onSave={() => save()}
+                  saving={saving}
+                />
+                <div className="space-y-4 p-5">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Toggle
+                      checked={section.sendTransactionMessage}
+                      onChange={(value) =>
+                        update("sendTransactionMessage", value)
+                      }
+                      label="Send billing WhatsApp/SMS to party"
+                      description="Notify customers after creating a transaction"
+                    />
+                    <Toggle
+                      checked={section.paymentAlerts}
+                      onChange={(value) => update("paymentAlerts", value)}
+                      label="Get payment reminders on WhatsApp"
+                      description="Alerts for outstanding customer payments"
+                    />
+                  </div>
+                  <Card className="p-5">
+                    <h3 className="font-semibold">To party</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Reminders sent to customers
+                    </p>
+                    <div className="mt-4 grid gap-4 md:grid-cols-3">
+                      <Toggle
+                        checked={section.beforeDue}
+                        onChange={(value) => update("beforeDue", value)}
+                        label="Before due date"
+                      />
+                      <Toggle
+                        checked={section.onDueDate}
+                        onChange={(value) => update("onDueDate", value)}
+                        label="On due date"
+                      />
+                      <Toggle
+                        checked={section.afterDue}
+                        onChange={(value) => update("afterDue", value)}
+                        label="After due date"
+                      />
+                    </div>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <SettingField label="Days before due">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={section.beforeDueDays}
+                          onChange={(e) =>
+                            update("beforeDueDays", e.target.value)
+                          }
+                        />
+                      </SettingField>
+                      <SettingField label="Repeat every days after due">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={section.afterDueDays}
+                          onChange={(e) =>
+                            update("afterDueDays", e.target.value)
+                          }
+                        />
+                      </SettingField>
+                    </div>
+                  </Card>
+                  <Toggle
+                    checked={section.dailySummary}
+                    onChange={(value) => update("dailySummary", value)}
+                    label="Daily summary for you"
+                    description="Receive a daily workspace activity and collection summary"
+                  />
+                </div>
+              </>
+            )}
+
+            {activeTab === "caSharing" && (
+              <>
+                <SectionHeader
+                  title="CA reports sharing"
+                  subtitle="Automatically share tax and sales reports with your CA"
+                  onSave={() => save()}
+                  saving={saving}
+                  action={
+                    <Button variant="outline" onClick={() => setCaModal(true)}>
+                      {section.name ? "Edit CA" : "Add your CA"}
+                    </Button>
+                  }
+                />
+                <div className="space-y-5 p-5">
+                  <Toggle
+                    checked={section.enabled}
+                    onChange={(value) => update("enabled", value)}
+                    label="Enable automatic report sharing"
+                    description="Reports are shared on the first day of every month"
+                  />
+                  {section.name ? (
+                    <Card className="p-5">
+                      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                        <div>
+                          <div className="text-lg font-semibold">
+                            {section.name}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {section.phone}{" "}
+                            {section.email && `- ${section.email}`}
+                          </div>
+                        </div>
+                        <Badge tone={section.enabled ? "success" : "neutral"}>
+                          {section.enabled
+                            ? "Sharing active"
+                            : "Sharing paused"}
+                        </Badge>
+                      </div>
+                    </Card>
+                  ) : (
+                    <Card className="p-10 text-center">
+                      <Share2 className="mx-auto h-10 w-10 text-primary" />
+                      <h3 className="mt-3 font-semibold">
+                        Add your Chartered Accountant
+                      </h3>
+                      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                        Save your CA details once and manage monthly report
+                        sharing without manual follow-up.
+                      </p>
+                      <Button className="mt-4" onClick={() => setCaModal(true)}>
+                        Add CA details
+                      </Button>
+                    </Card>
+                  )}
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {[
+                      ["sendGstr1", "GSTR-1 report"],
+                      ["sendGstr3b", "GSTR-3B report"],
+                      ["sendSales", "Sales summary"],
+                    ].map(([key, label]) => (
+                      <Toggle
+                        key={key}
+                        checked={section[key]}
+                        onChange={(value) => update(key, value)}
+                        label={label}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "pricing" && (
+              <>
+                <SectionHeader
+                  title="Pricing & subscription"
+                  subtitle="Choose a plan based on your workspace needs"
+                />
+                <div className="space-y-5 p-5">
+                  <div className="mx-auto flex w-fit rounded-lg border border-border p-1">
+                    {["monthly", "yearly"].map((cycle) => (
+                      <button
+                        key={cycle}
+                        type="button"
+                        onClick={() => update("cycle", cycle)}
+                        className={cn(
+                          "rounded-md px-6 py-2 text-sm font-medium capitalize",
+                          section.cycle === cycle &&
+                            "bg-primary text-primary-foreground",
+                        )}
+                      >
+                        {cycle}
+                        {cycle === "yearly" && (
+                          <span className="ml-2 text-[10px]">Save 17%</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    {plans.map((plan) => {
+                      const current = section.plan === plan.id;
+                      const price =
+                        section.cycle === "yearly" ? plan.yearly : plan.monthly;
+                      return (
+                        <Card
+                          key={plan.id}
+                          className={cn(
+                            "flex flex-col p-5",
+                            current && "border-primary ring-2 ring-primary/15",
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold">
+                              {plan.name}
+                            </h3>
+                            {current && <Badge tone="primary">Current</Badge>}
+                          </div>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {plan.description}
+                          </p>
+                          <div className="mt-5 text-3xl font-semibold">
+                            {price === 0
+                              ? "Free"
+                              : `INR ${price.toLocaleString("en-IN")}`}
+                            {price > 0 && (
+                              <span className="text-xs font-normal text-muted-foreground">
+                                {" "}
+                                /{" "}
+                                {section.cycle === "yearly" ? "year" : "month"}
+                              </span>
+                            )}
+                          </div>
+                          <ul className="my-5 flex-1 space-y-2 text-sm">
+                            {plan.features.map((feature) => (
+                              <li key={feature} className="flex gap-2">
+                                <Check className="mt-0.5 h-4 w-4 text-success" />{" "}
+                                {feature}
+                              </li>
+                            ))}
+                          </ul>
+                          <Button
+                            variant={current ? "outline" : "primary"}
+                            disabled={current || saving}
+                            onClick={() => {
+                              const next = { ...section, plan: plan.id };
+                              update("plan", plan.id);
+                              save("pricing", next);
+                            }}
+                          >
+                            {current ? "Current plan" : "Choose plan"}
+                          </Button>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "support" && (
+              <>
+                <SectionHeader
+                  title="Help & support"
+                  subtitle="Get assistance and find common answers"
+                />
+                <div className="space-y-5 p-5">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card className="p-5">
+                      <MessageCircle className="h-7 w-7 text-primary" />
+                      <h3 className="mt-3 font-semibold">Chat support</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Talk to the support team about your workspace.
+                      </p>
+                      <Button
+                        className="mt-4"
+                        onClick={() =>
+                          window.open(
+                            "https://wa.me/?text=I need help with BillPro",
+                            "_blank",
+                            "noopener,noreferrer",
+                          )
+                        }
+                      >
+                        Start chat
+                      </Button>
+                    </Card>
+                    <Card className="p-5">
+                      <Mail className="h-7 w-7 text-info" />
+                      <h3 className="mt-3 font-semibold">Email support</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Send detailed questions or screenshots by email.
+                      </p>
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        onClick={() => {
+                          window.location.href =
+                            "mailto:support@billpro.local?subject=BillPro support";
+                        }}
+                      >
+                        Email support
+                      </Button>
+                    </Card>
+                  </div>
+                  <Card className="divide-y divide-border">
+                    {[
+                      [
+                        "How is tenant data protected?",
+                        "Every API request is authenticated and scoped to your workspace.",
+                      ],
+                      [
+                        "How do invoice themes work?",
+                        "Select a theme and options, preview them live, then save the section.",
+                      ],
+                      [
+                        "Can I share reports with my CA?",
+                        "Yes. Add CA details and enable the reports you want to share.",
+                      ],
+                    ].map(([question, answer]) => (
+                      <details key={question} className="group p-4">
+                        <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
+                          {question}
+                          <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {answer}
+                        </p>
+                      </details>
+                    ))}
+                  </Card>
+                </div>
+              </>
+            )}
+          </main>
+        </div>
+      </div>
+
+      <Modal
+        open={userModal}
+        onClose={() => setUserModal(false)}
+        title="Add user"
+        description="Create a workspace account with role-based access"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setUserModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={inviteUser}>Add user</Button>
+          </>
+        }
+      >
+        <form onSubmit={inviteUser} className="grid gap-4 sm:grid-cols-2">
+          <SettingField label="Full name">
+            <Input
+              required
+              value={userForm.name}
+              onChange={(e) =>
+                setUserForm({ ...userForm, name: e.target.value })
+              }
+            />
+          </SettingField>
+          <SettingField label="Email">
+            <Input
+              required
+              type="email"
+              value={userForm.email}
+              onChange={(e) =>
+                setUserForm({ ...userForm, email: e.target.value })
+              }
+            />
+          </SettingField>
+          <SettingField label="Role">
+            <Select
+              value={userForm.role}
+              onChange={(e) =>
+                setUserForm({ ...userForm, role: e.target.value })
+              }
+            >
+              <option>Admin</option>
+              <option>Accountant</option>
+              <option>Sales</option>
+              <option>Viewer</option>
+            </Select>
+          </SettingField>
+          <SettingField label="Branch">
+            <Input
+              value={userForm.branch}
+              onChange={(e) =>
+                setUserForm({ ...userForm, branch: e.target.value })
+              }
+            />
+          </SettingField>
+          <SettingField label="Temporary password" className="sm:col-span-2">
+            <Input
+              required
+              type="password"
+              minLength={8}
+              value={userForm.password}
+              onChange={(e) =>
+                setUserForm({ ...userForm, password: e.target.value })
+              }
+              placeholder="Minimum 8 characters"
+            />
+          </SettingField>
+        </form>
+      </Modal>
+
+      <Modal
+        open={caModal}
+        onClose={() => setCaModal(false)}
+        title="CA reports sharing"
+        description="Add your Chartered Accountant for scheduled report sharing"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCaModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                await save("caSharing");
+                setCaModal(false);
+              }}
+            >
+              Save CA
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <SettingField label="CA name">
+            <Input
+              value={settings.caSharing.name}
+              onChange={(e) =>
+                updateSection("caSharing", "name", e.target.value)
+              }
+            />
+          </SettingField>
+          <SettingField label="CA WhatsApp number">
+            <Input
+              value={settings.caSharing.phone}
+              onChange={(e) =>
+                updateSection("caSharing", "phone", e.target.value)
+              }
+            />
+          </SettingField>
+          <SettingField label="CA email (optional)">
+            <Input
+              type="email"
+              value={settings.caSharing.email}
+              onChange={(e) =>
+                updateSection("caSharing", "email", e.target.value)
+              }
+            />
+          </SettingField>
+          <div className="rounded-lg bg-warning/10 p-3 text-xs text-warning-foreground">
+            Reports will be prepared according to the selected schedule.
+            External WhatsApp/email delivery requires provider credentials.
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 }
 

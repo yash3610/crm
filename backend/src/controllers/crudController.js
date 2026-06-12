@@ -43,6 +43,7 @@ export function createCrudController({
   searchFields = [],
   defaultSort = "-createdAt",
   beforeCreate,
+  afterCreate,
   beforeUpdate,
   beforeRemove,
   transform,
@@ -94,6 +95,7 @@ export function createCrudController({
     payload.tenantId = req.tenantId;
 
     const item = await Model.create(payload);
+    if (afterCreate) await afterCreate(item, req);
     res.status(201).json({
       success: true,
       message: "Created successfully",

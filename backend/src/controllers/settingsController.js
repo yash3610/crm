@@ -4,9 +4,17 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const allowedSettingKeys = new Set([
+  "account",
+  "business",
   "company",
   "tax",
   "billing",
+  "invoice",
+  "print",
+  "reminders",
+  "caSharing",
+  "pricing",
+  "support",
   "notifications",
   "appearance",
 ]);
@@ -47,6 +55,19 @@ export const updateSettings = asyncHandler(async (req, res) => {
   if (req.body.company?.name) {
     await Tenant.findByIdAndUpdate(req.tenantId, {
       name: req.body.company.name,
+    });
+  }
+  if (req.body.business?.name) {
+    await Tenant.findByIdAndUpdate(req.tenantId, {
+      name: req.body.business.name,
+    });
+  }
+  if (
+    req.body.pricing?.plan &&
+    ["starter", "growth", "premium"].includes(req.body.pricing.plan)
+  ) {
+    await Tenant.findByIdAndUpdate(req.tenantId, {
+      plan: req.body.pricing.plan,
     });
   }
 

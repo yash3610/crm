@@ -90,6 +90,33 @@ async function verify() {
     const [alphaToken, betaToken] = registrations.map(
       ({ body }) => body.data.token,
     );
+    const alphaSettings = await request(baseUrl, "/settings", {
+      method: "PUT",
+      headers: { authorization: `Bearer ${alphaToken}` },
+      body: JSON.stringify({
+        business: { name: `Alpha ${suffix}`, gstin: "27ABCDE1234F1Z5" },
+        invoice: { theme: "modern", accent: "#4f46e5" },
+        pricing: { plan: "premium", cycle: "yearly" },
+      }),
+    });
+    assert.equal(alphaSettings.status, 200);
+
+    const [alphaSettingsRead, betaSettingsRead] = await Promise.all([
+      request(baseUrl, "/settings", {
+        headers: { authorization: `Bearer ${alphaToken}` },
+      }),
+      request(baseUrl, "/settings", {
+        headers: { authorization: `Bearer ${betaToken}` },
+      }),
+    ]);
+    assert.equal(alphaSettingsRead.body.data.invoice.theme, "modern");
+    assert.equal(betaSettingsRead.body.data.invoice, undefined);
+
+    const alphaMe = await request(baseUrl, "/auth/me", {
+      headers: { authorization: `Bearer ${alphaToken}` },
+    });
+    assert.equal(alphaMe.body.data.tenant.plan, "premium");
+
     const unauthenticated = await request(baseUrl, "/products");
     assert.equal(unauthenticated.status, 401);
 

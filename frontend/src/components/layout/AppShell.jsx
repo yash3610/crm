@@ -94,12 +94,17 @@ function useDark() {
 }
 function NavList({ onNavigate }) {
   const { pathname } = useLocation();
-  const isActive = (to) =>
-    to === "/"
-      ? pathname === "/"
-      : pathname === to || pathname.startsWith(to + "/");
+  const activePath = nav
+    .flatMap((section) => section.items)
+    .map((item) => item.to)
+    .filter((to) =>
+      to === "/"
+        ? pathname === "/"
+        : pathname === to || pathname.startsWith(`${to}/`),
+    )
+    .sort((first, second) => second.length - first.length)[0];
   return (
-    <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+    <nav className="scrollbar-hidden flex-1 space-y-6 overflow-y-auto px-3 py-4">
       {nav.map((sec) => (
         <div key={sec.label}>
           <div className="px-2 mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -107,7 +112,7 @@ function NavList({ onNavigate }) {
           </div>
           <ul className="space-y-0.5">
             {sec.items.map((it) => {
-              const active = isActive(it.to);
+              const active = activePath === it.to;
               const Icon = it.icon;
               return (
                 <li key={it.to}>

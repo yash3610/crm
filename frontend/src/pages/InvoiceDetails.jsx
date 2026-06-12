@@ -21,17 +21,41 @@ function InvoiceDetail() {
   const [inv, setInvoice] = useState(
     invoices.find((item) => item.id === id) ?? invoices[0],
   );
+  const [documentSettings, setDocumentSettings] = useState({
+    business: {},
+    invoice: {
+      accent: "#4f46e5",
+      showBalance: true,
+      showDescription: true,
+      showPhone: true,
+      showTime: false,
+      showHsn: true,
+      showDiscount: true,
+      terms: "Payment is due within 14 days.",
+    },
+  });
 
   useEffect(() => {
-    api
-      .get(`/invoices/${id}`)
-      .then(setInvoice)
+    Promise.all([api.get(`/invoices/${id}`), api.get("/settings")])
+      .then(([invoice, settings]) => {
+        setInvoice(invoice);
+        setDocumentSettings((current) => ({
+          business: {
+            ...(settings.company || {}),
+            ...(settings.tax || {}),
+            ...(settings.business || {}),
+          },
+          invoice: { ...current.invoice, ...(settings.invoice || {}) },
+        }));
+      })
       .catch((error) => toast.error(error.message));
   }, [id]);
   const lines = inv.lines?.length ? inv.lines : sampleLines;
   const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
   const gst = lines.reduce((s, l) => s + (l.qty * l.price * l.gst) / 100, 0);
   const total = subtotal + gst;
+  const business = documentSettings.business;
+  const invoiceSettings = documentSettings.invoice;
   return (
     <>
       <PageHeader
@@ -72,7 +96,10 @@ function InvoiceDetail() {
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
-        <Card className="print-document p-8">
+        <Card
+          className="print-document overflow-hidden p-8"
+          style={{ borderTop: `5px solid ${invoiceSettings.accent}` }}
+        >
           <div className="flex items-start justify-between mb-8">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-primary">
@@ -84,11 +111,20 @@ function InvoiceDetail() {
               </div>
             </div>
             <div className="text-right text-sm">
-              <div className="font-semibold">BillPro Industries Pvt Ltd</div>
-              <div className="text-muted-foreground">
-                Andheri East, Mumbai 400069
+              <div className="font-semibold">
+                {business.name || "Your Business"}
               </div>
-              <div className="text-muted-foreground">GSTIN 27AABCB1234C1Z5</div>
+              <div className="text-muted-foreground">
+                {business.address || "Update business address in settings"}
+              </div>
+              {invoiceSettings.showPhone && business.phone && (
+                <div className="text-muted-foreground">{business.phone}</div>
+              )}
+              {business.gstin && (
+                <div className="text-muted-foreground">
+                  GSTIN {business.gstin}
+                </div>
+              )}
             </div>
           </div>
 
@@ -110,6 +146,14 @@ function InvoiceDetail() {
                 {new Date(inv.date).toLocaleDateString("en-IN", {
                   dateStyle: "medium",
                 })}
+                {invoiceSettings.showTime && (
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(inv.createdAt || inv.date).toLocaleTimeString(
+                      "en-IN",
+                      { hour: "2-digit", minute: "2-digit" },
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div>
@@ -128,8 +172,14 @@ function InvoiceDetail() {
             <thead>
               <tr className="text-left text-xs uppercase text-muted-foreground">
                 <th className="py-2 font-medium">Item</th>
+                {invoiceSettings.showHsn && (
+                  <th className="py-2 font-medium">HSN</th>
+                )}
                 <th className="py-2 font-medium text-right">Qty</th>
                 <th className="py-2 font-medium text-right">Price</th>
+                {invoiceSettings.showDiscount && (
+                  <th className="py-2 font-medium text-right">Disc.</th>
+                )}
                 <th className="py-2 font-medium text-right">GST</th>
                 <th className="py-2 font-medium text-right">Amount</th>
               </tr>
@@ -137,11 +187,26 @@ function InvoiceDetail() {
             <tbody>
               {lines.map((l, i) => (
                 <tr key={i} className="border-t border-border">
-                  <td className="py-3 font-medium">{l.name}</td>
+                  <td className="py-3 font-medium">
+                    {l.name}
+                    {invoiceSettings.showDescription && (
+                      <div className="text-xs font-normal text-muted-foreground">
+                        {l.description || "Product or service"}
+                      </div>
+                    )}
+                  </td>
+                  {invoiceSettings.showHsn && (
+                    <td className="py-3">{l.hsn || "-"}</td>
+                  )}
                   <td className="py-3 text-right tabular-nums">{l.qty}</td>
                   <td className="py-3 text-right tabular-nums">
                     {formatINR(l.price)}
                   </td>
+                  {invoiceSettings.showDiscount && (
+                    <td className="py-3 text-right tabular-nums">
+                      {l.discount || 0}%
+                    </td>
+                  )}
                   <td className="py-3 text-right tabular-nums">{l.gst}%</td>
                   <td className="py-3 text-right tabular-nums">
                     {formatINR(l.qty * l.price)}
@@ -165,13 +230,18 @@ function InvoiceDetail() {
                 <span>Total</span>
                 <span className="tabular-nums">{formatINR(total)}</span>
               </div>
+              {invoiceSettings.showBalance && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Balance due</span>
+                  <span className="tabular-nums">{formatINR(inv.amount)}</span>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="mt-10 pt-6 border-t border-border text-xs text-muted-foreground">
             <div className="font-semibold text-foreground mb-1">Notes</div>
-            Payment due within 14 days. Make UPI to rahul@hdfc or bank transfer
-            to HDFC ****8821.
+            {invoiceSettings.terms}
           </div>
         </Card>
 
