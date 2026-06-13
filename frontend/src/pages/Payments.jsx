@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Banknote, IndianRupee, Plus, ReceiptText } from "lucide-react";
+import { Banknote, IndianRupee, Plus, ReceiptText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTable } from "@/components/common/DataTable";
@@ -26,10 +26,14 @@ const emptyForm = {
 
 function Payments() {
   const { user } = useAuth();
-  const { rows, create } = useApiList("/payments", payments);
-  const { rows: invoices } = useApiList("/invoices", invoiceSeed);
+  const { rows, create, remove } = useApiList("/payments", payments);
+  const { rows: invoices, reload: reloadInvoices } = useApiList(
+    "/invoices",
+    invoiceSeed,
+  );
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState("");
   const [form, setForm] = useState(emptyForm);
 
   const paidByInvoice = useMemo(
@@ -132,6 +136,27 @@ function Payments() {
     }
   };
 
+  const deletePayment = async (payment) => {
+    if (
+      !window.confirm(
+        `Delete payment of ${formatINR(payment.amount)} for ${payment.invoiceNumber || payment.invoice}?`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeleting(payment.id);
+      await remove(payment.id);
+      await reloadInvoices();
+      toast.success("Payment deleted and balances updated");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setDeleting("");
+    }
+  };
+
   const columns = [
     {
       key: "invoice",
@@ -173,6 +198,27 @@ function Payments() {
       className: "text-right tabular-nums",
       render: (row) => formatINR(row.amount),
     },
+    ...(canRecord
+      ? [
+          {
+            key: "actions",
+            header: "",
+            className: "w-14 text-right",
+            render: (row) => (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={deleting === row.id}
+                onClick={() => deletePayment(row)}
+                aria-label="Delete payment"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (

@@ -267,6 +267,46 @@ async function verify() {
       },
     );
     assert.equal(mutatePayment.status, 409);
+
+    const deleteFullPayment = await request(
+      baseUrl,
+      `/payments/${fullPayment.body.data.id}`,
+      { method: "DELETE", headers: auth(alphaToken) },
+    );
+    assert.equal(deleteFullPayment.status, 200);
+    let invoiceAfterDelete = await request(
+      baseUrl,
+      `/invoices/${invoice.body.data.id}`,
+      { headers: auth(alphaToken) },
+    );
+    assert.equal(invoiceAfterDelete.body.data.status, "pending");
+    assert.equal(invoiceAfterDelete.body.data.paidAmount, 300);
+    let customerAfterDelete = await request(
+      baseUrl,
+      `/customers/${customer.body.data.id}`,
+      { headers: auth(alphaToken) },
+    );
+    assert.equal(customerAfterDelete.body.data.outstanding, 408);
+
+    const deletePartialPayment = await request(
+      baseUrl,
+      `/payments/${partialPayment.body.data.id}`,
+      { method: "DELETE", headers: auth(alphaToken) },
+    );
+    assert.equal(deletePartialPayment.status, 200);
+    invoiceAfterDelete = await request(
+      baseUrl,
+      `/invoices/${invoice.body.data.id}`,
+      { headers: auth(alphaToken) },
+    );
+    assert.equal(invoiceAfterDelete.body.data.paidAmount, 0);
+    customerAfterDelete = await request(
+      baseUrl,
+      `/customers/${customer.body.data.id}`,
+      { headers: auth(alphaToken) },
+    );
+    assert.equal(customerAfterDelete.body.data.outstanding, 708);
+
     const deleteInvoice = await request(
       baseUrl,
       `/invoices/${invoice.body.data.id}`,

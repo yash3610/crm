@@ -55,7 +55,7 @@ async function validatePaymentOwnership(payload, req) {
 }
 
 function preventPaymentMutation() {
-  throw new ApiError(409, "Recorded payments cannot be edited or deleted");
+  throw new ApiError(409, "Recorded payments cannot be edited");
 }
 
 function calculatePurchase(payload) {
@@ -364,9 +364,12 @@ const paymentCrudController = createCrudController({
   idField: "paymentId",
   prefix: "PM",
   searchFields: ["invoiceNumber", "customer", "reference"],
-  transform: (item) => ({ ...item, invoice: item.invoiceNumber }),
+  transform: (item) => ({
+    ...item,
+    invoiceId: item.invoice,
+    invoice: item.invoiceNumber,
+  }),
   beforeUpdate: preventPaymentMutation,
-  beforeRemove: preventPaymentMutation,
 });
 
 const createCustomerPayment = asyncHandler(async (req, res) => {
@@ -443,6 +446,7 @@ const createCustomerPayment = asyncHandler(async (req, res) => {
   const item = payment.toJSON();
   item.mongoId = item.id;
   item.id = item.paymentId;
+  item.invoiceId = item.invoice;
   item.invoice = item.invoiceNumber;
   res.status(201).json({
     success: true,
@@ -451,9 +455,95 @@ const createCustomerPayment = asyncHandler(async (req, res) => {
   });
 });
 
+const deleteCustomerPayment = asyncHandler(async (req, res) => {
+  const conditions = [{ paymentId: req.params.id }];
+  if (mongoose.isValidObjectId(req.params.id)) {
+    conditions.push({ _id: req.params.id });
+  }
+  const payment = await Payment.findOne({
+    tenantId: req.tenantId,
+    $or: conditions,
+  });
+  if (!payment) throw new ApiError(404, "Payment not found");
+
+  const amount = Number(payment.amount);
+  const invoice = await Invoice.findOneAndUpdate(
+    {
+      _id: payment.invoice,
+      tenantId: req.tenantId,
+      paidAmount: { $gte: amount },
+    },
+    {
+      $inc: { paidAmount: -amount },
+      $set: { status: "pending" },
+    },
+    { new: true, runValidators: true },
+  );
+  if (!invoice) {
+    throw new ApiError(409, "Invoice balance changed; please try again");
+  }
+
+  if (invoice.customer) {
+    await Customer.updateOne(
+      { _id: invoice.customer, tenantId: req.tenantId },
+      [
+        {
+          $set: {
+            outstanding: {
+              $min: [
+                { $ifNull: ["$totalBilled", invoice.amount] },
+                {
+                  $add: [{ $ifNull: ["$outstanding", 0] }, amount],
+                },
+              ],
+            },
+          },
+        },
+      ],
+    );
+  }
+
+  const deleted = await Payment.deleteOne({
+    _id: payment._id,
+    tenantId: req.tenantId,
+  });
+  if (!deleted.deletedCount) {
+    await Invoice.updateOne(
+      { _id: invoice._id, tenantId: req.tenantId },
+      {
+        $inc: { paidAmount: amount },
+        $set: {
+          status:
+            Number(invoice.paidAmount) + amount >= Number(invoice.amount)
+              ? "paid"
+              : "pending",
+        },
+      },
+    );
+    if (invoice.customer) {
+      await Customer.updateOne(
+        { _id: invoice.customer, tenantId: req.tenantId },
+        { $inc: { outstanding: -amount } },
+      );
+    }
+    throw new ApiError(409, "Payment deletion conflicted; please try again");
+  }
+
+  res.json({
+    success: true,
+    message: "Payment deleted and balances updated",
+    data: {
+      invoiceId: invoice.invoiceId,
+      paidAmount: invoice.paidAmount,
+      status: invoice.status,
+    },
+  });
+});
+
 export const paymentController = {
   ...paymentCrudController,
   create: createCustomerPayment,
+  remove: deleteCustomerPayment,
 };
 
 export const expenseController = createCrudController({

@@ -248,6 +248,17 @@
   .print-document tr,
   .print-document .print-avoid-break {
     break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-document .invoice-payment-history {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  .print-document .invoice-footer {
+    margin-top: 10mm !important;
+    padding-top: 0 !important;
   }
 
   .print-hidden {

@@ -21,6 +21,7 @@ export function InvoiceDocument({
   business = {},
   settings = {},
   printSettings = {},
+  payments = [],
   compact = false,
   className,
 }) {
@@ -363,9 +364,62 @@ export function InvoiceDocument({
         </div>
       </section>
 
+      {payments.length > 0 && (
+        <section
+          className={cn(
+            "invoice-payment-history print-avoid-break",
+            compact ? "mt-5" : "mt-9",
+          )}
+        >
+          <div
+            className={cn("font-bold", compact ? "text-xs" : "text-lg")}
+            style={{ color: accent }}
+          >
+            Payment History
+          </div>
+          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+            <table className="w-full">
+              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                <tr>
+                  <th className={compact ? "p-2" : "p-3"}>Date</th>
+                  <th className={compact ? "p-2" : "p-3"}>Method</th>
+                  <th className={compact ? "p-2" : "p-3"}>Reference</th>
+                  <th className={cn(compact ? "p-2" : "p-3", "text-right")}>
+                    Amount
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((payment) => (
+                  <tr key={payment.id} className="border-t border-slate-200">
+                    <td className={compact ? "p-2" : "p-3"}>
+                      {formatDate(payment.date)}
+                    </td>
+                    <td className={cn(compact ? "p-2" : "p-3", "uppercase")}>
+                      {payment.method}
+                    </td>
+                    <td className={compact ? "p-2" : "p-3"}>
+                      {payment.reference || "-"}
+                    </td>
+                    <td
+                      className={cn(
+                        compact ? "p-2" : "p-3",
+                        "text-right font-semibold",
+                      )}
+                    >
+                      {formatINR(payment.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <footer
         className={cn(
-          "mt-auto grid items-end gap-10 pt-12",
+          "invoice-footer print-avoid-break mt-auto grid items-end gap-10 pt-12",
           showSignature && !compact ? "grid-cols-[1fr_260px]" : "grid-cols-1",
         )}
       >

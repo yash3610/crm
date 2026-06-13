@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Download, Printer, Send } from "lucide-react";
+import { ArrowLeft, Download, Printer, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -10,6 +10,7 @@ import {
   StatusBadge,
 } from "@/components/common/Primitives";
 import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
+import { useAuth } from "@/context/AuthContext";
 import { formatINR, invoices } from "@/data/mock";
 import { api } from "@/lib/api";
 import { printDocument } from "@/lib/printDocument";
@@ -46,6 +47,7 @@ const defaultPrintSettings = {
 
 function InvoiceDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [inv, setInvoice] = useState(
     invoices.find((item) => item.id === id) ?? invoices[0],
   );
@@ -55,11 +57,23 @@ function InvoiceDetail() {
     print: defaultPrintSettings,
   });
   const [customer, setCustomer] = useState({});
+  const [payments, setPayments] = useState([]);
+  const [deletingPayment, setDeletingPayment] = useState("");
 
   useEffect(() => {
-    Promise.all([api.get(`/invoices/${id}`), api.get("/settings")])
-      .then(async ([invoice, settings]) => {
+    Promise.all([
+      api.get(`/invoices/${id}`),
+      api.get("/settings"),
+      api.get("/payments"),
+    ])
+      .then(async ([invoice, settings, paymentRows]) => {
         setInvoice(invoice);
+        setPayments(
+          paymentRows.filter(
+            (payment) =>
+              (payment.invoiceNumber || payment.invoice) === invoice.number,
+          ),
+        );
         if (invoice.customerId) {
           setCustomer(await api.get(`/customers/${invoice.customerId}`));
         } else {
@@ -83,6 +97,36 @@ function InvoiceDetail() {
       })
       .catch((error) => toast.error(error.message));
   }, [id]);
+
+  const deletePayment = async (payment) => {
+    if (
+      !window.confirm(
+        `Delete payment of ${formatINR(payment.amount)}? Invoice balance and customer outstanding will be updated.`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeletingPayment(payment.id);
+      await api.delete(`/payments/${payment.id}`);
+      const [invoice, paymentRows] = await Promise.all([
+        api.get(`/invoices/${id}`),
+        api.get("/payments"),
+      ]);
+      setInvoice(invoice);
+      setPayments(
+        paymentRows.filter(
+          (item) => (item.invoiceNumber || item.invoice) === invoice.number,
+        ),
+      );
+      toast.success("Payment deleted and invoice balance updated");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setDeletingPayment("");
+    }
+  };
 
   const lines = inv.lines?.length ? inv.lines : sampleLines;
   const total =
@@ -149,6 +193,7 @@ function InvoiceDetail() {
             business={documentSettings.business}
             settings={renderedSettings}
             printSettings={documentSettings.print}
+            payments={payments}
             compact={documentSettings.print.mode === "thermal"}
           />
         </Card>
@@ -189,6 +234,61 @@ function InvoiceDetail() {
                 Manage invoice settings
               </Button>
             </Link>
+          </Card>
+          <Card className="p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold">Payment history</h3>
+              <span className="text-xs text-muted-foreground">
+                {payments.length} entries
+              </span>
+            </div>
+            {payments.length ? (
+              <div className="mt-4 space-y-3">
+                {payments.map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="rounded-lg border border-border p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold">
+                          {formatINR(payment.amount)}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {new Date(payment.date).toLocaleDateString("en-IN", {
+                            dateStyle: "medium",
+                          })}{" "}
+                          · {payment.method.toUpperCase()}
+                        </div>
+                        {payment.reference && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Ref: {payment.reference}
+                          </div>
+                        )}
+                      </div>
+                      {["Owner", "Admin", "Accountant"].includes(
+                        user?.role,
+                      ) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          disabled={deletingPayment === payment.id}
+                          onClick={() => deletePayment(payment)}
+                          aria-label="Delete payment"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">
+                No payments recorded yet.
+              </p>
+            )}
           </Card>
         </div>
       </div>
