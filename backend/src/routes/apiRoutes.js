@@ -7,8 +7,10 @@ import {
   getInventory,
 } from "../controllers/inventoryController.js";
 import {
+  clearReadNotifications,
   markAllRead,
   notificationController,
+  setNotificationRead,
 } from "../controllers/notificationController.js";
 import {
   customerController,
@@ -92,10 +94,13 @@ router.use(
 router.get("/inventory", getInventory);
 router.post("/inventory/adjust", allowRoles("Owner", "Admin"), adjustStock);
 router.patch("/notifications/read-all", markAllRead);
+router.delete("/notifications/read", clearReadNotifications);
+router.patch("/notifications/:id/read", setNotificationRead);
 router.use(
   "/notifications",
   createCrudRouter(notificationController, {
     writeRoles: ["Owner", "Admin"],
+    deleteRoles: ["Owner", "Admin", "Accountant", "Sales", "Viewer"],
   }),
 );
 router.get("/settings", getSettings);

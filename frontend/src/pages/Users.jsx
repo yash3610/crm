@@ -1,5 +1,14 @@
-import { useState } from "react";
-import { KeyRound, Pencil, Plus, Shield, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  KeyRound,
+  Mail,
+  Pencil,
+  Phone,
+  Plus,
+  Share2,
+  Shield,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -7,6 +16,7 @@ import { DataTable } from "@/components/common/DataTable";
 import {
   Badge,
   Button,
+  Card,
   Field,
   Input,
   Modal,
@@ -16,6 +26,7 @@ import {
 } from "@/components/common/Primitives";
 import { useAuth } from "@/context/AuthContext";
 import { useApiList } from "@/hooks/useApiList";
+import { api } from "@/lib/api";
 
 const roles = [
   {
@@ -53,6 +64,17 @@ const emptyForm = {
   status: "active",
 };
 
+const emptyCa = {
+  enabled: false,
+  name: "",
+  phone: "",
+  email: "",
+  frequency: "monthly",
+  sendGstr1: true,
+  sendGstr3b: true,
+  sendSales: true,
+};
+
 function formatLastSeen(value) {
   if (!value) return "Never";
   return new Date(value).toLocaleString("en-IN", {
@@ -69,6 +91,23 @@ function UsersPage() {
   const [form, setForm] = useState(emptyForm);
   const [deleting, setDeleting] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [ca, setCa] = useState(emptyCa);
+  const [caForm, setCaForm] = useState(emptyCa);
+  const [caModal, setCaModal] = useState(false);
+  const [removeCaOpen, setRemoveCaOpen] = useState(false);
+  const [caLoading, setCaLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .get("/settings")
+      .then((settings) => {
+        const savedCa = { ...emptyCa, ...(settings.caSharing || {}) };
+        setCa(savedCa);
+        setCaForm(savedCa);
+      })
+      .catch((error) => toast.error(error.message))
+      .finally(() => setCaLoading(false));
+  }, []);
 
   const openCreate = () => {
     setEditing(null);
@@ -137,6 +176,52 @@ function UsersPage() {
       await remove(deleting.id);
       toast.success(`${deleting.name} deleted`);
       setDeleting(null);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openCaModal = () => {
+    setCaForm({ ...emptyCa, ...ca });
+    setCaModal(true);
+  };
+
+  const saveCa = async (event) => {
+    event.preventDefault();
+    if (!caForm.name.trim() || (!caForm.phone.trim() && !caForm.email.trim())) {
+      toast.error("CA name and phone or email are required");
+      return;
+    }
+
+    const payload = {
+      ...caForm,
+      name: caForm.name.trim(),
+      phone: caForm.phone.trim(),
+      email: caForm.email.trim(),
+    };
+    try {
+      setSaving(true);
+      await api.put("/settings", { caSharing: payload });
+      setCa(payload);
+      setCaModal(false);
+      toast.success("CA details updated");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeCa = async () => {
+    try {
+      setSaving(true);
+      await api.put("/settings", { caSharing: emptyCa });
+      setCa(emptyCa);
+      setCaForm(emptyCa);
+      setRemoveCaOpen(false);
+      toast.success("CA removed");
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -270,6 +355,97 @@ function UsersPage() {
         ))}
       </div>
 
+      <Card className="mb-6 p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-info/15 text-info">
+              <Share2 className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-semibold">External Chartered Accountant</h2>
+                {ca.name && (
+                  <Badge tone={ca.enabled ? "success" : "neutral"}>
+                    {ca.enabled ? "Sharing active" : "Sharing paused"}
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                CA is an external report-sharing contact, not a workspace login.
+              </p>
+            </div>
+          </div>
+          {!caLoading && (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={openCaModal}>
+                {ca.name ? (
+                  <Pencil className="h-4 w-4" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {ca.name ? "Manage CA" : "Add CA"}
+              </Button>
+              {ca.name && (
+                <Button
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setRemoveCaOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Remove
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {caLoading ? (
+          <div className="mt-4 text-sm text-muted-foreground">
+            Loading CA details...
+          </div>
+        ) : ca.name ? (
+          <div className="mt-5 grid gap-4 rounded-xl bg-muted/40 p-4 sm:grid-cols-3">
+            <div>
+              <div className="text-xs text-muted-foreground">CA name</div>
+              <div className="mt-1 font-medium">{ca.name}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Contact</div>
+              <div className="mt-1 space-y-1 text-sm">
+                {ca.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    {ca.phone}
+                  </div>
+                )}
+                {ca.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                    {ca.email}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Reports</div>
+              <div className="mt-1 text-sm font-medium">
+                {[
+                  ca.sendGstr1 && "GSTR-1",
+                  ca.sendGstr3b && "GSTR-3B",
+                  ca.sendSales && "Sales summary",
+                ]
+                  .filter(Boolean)
+                  .join(", ") || "None selected"}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
+            No Chartered Accountant is connected yet.
+          </div>
+        )}
+      </Card>
+
       <DataTable
         rows={rows}
         columns={columns}
@@ -395,6 +571,111 @@ function UsersPage() {
         </form>
       </Modal>
 
+      <Modal
+        open={caModal}
+        onClose={() => !saving && setCaModal(false)}
+        title={
+          ca.name ? "Manage Chartered Accountant" : "Add Chartered Accountant"
+        }
+        description="Manage the external contact used for scheduled report sharing"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setCaModal(false)}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={saveCa} disabled={saving}>
+              {saving ? "Saving..." : "Save CA"}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={saveCa} className="grid gap-4 sm:grid-cols-2">
+          <Field label="CA name" required>
+            <Input
+              required
+              value={caForm.name}
+              onChange={(event) =>
+                setCaForm({ ...caForm, name: event.target.value })
+              }
+            />
+          </Field>
+          <Field label="Sharing status">
+            <Select
+              className="w-full"
+              value={caForm.enabled ? "active" : "paused"}
+              onChange={(event) =>
+                setCaForm({
+                  ...caForm,
+                  enabled: event.target.value === "active",
+                })
+              }
+            >
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+            </Select>
+          </Field>
+          <Field label="WhatsApp / phone">
+            <Input
+              value={caForm.phone}
+              onChange={(event) =>
+                setCaForm({ ...caForm, phone: event.target.value })
+              }
+            />
+          </Field>
+          <Field label="Email">
+            <Input
+              type="email"
+              value={caForm.email}
+              onChange={(event) =>
+                setCaForm({ ...caForm, email: event.target.value })
+              }
+            />
+          </Field>
+          <Field label="Sharing frequency">
+            <Select
+              className="w-full"
+              value={caForm.frequency}
+              onChange={(event) =>
+                setCaForm({ ...caForm, frequency: event.target.value })
+              }
+            >
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+            </Select>
+          </Field>
+          <div className="sm:col-span-2">
+            <div className="text-xs font-medium text-muted-foreground">
+              Shared reports
+            </div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              {[
+                ["sendGstr1", "GSTR-1"],
+                ["sendGstr3b", "GSTR-3B"],
+                ["sendSales", "Sales summary"],
+              ].map(([key, label]) => (
+                <label
+                  key={key}
+                  className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={caForm[key]}
+                    onChange={(event) =>
+                      setCaForm({ ...caForm, [key]: event.target.checked })
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        </form>
+      </Modal>
+
       <ConfirmDialog
         open={Boolean(deleting)}
         onOpenChange={(open) => !open && !saving && setDeleting(null)}
@@ -403,6 +684,16 @@ function UsersPage() {
         confirmLabel="Delete user"
         loading={saving}
         onConfirm={deleteUser}
+      />
+
+      <ConfirmDialog
+        open={removeCaOpen}
+        onOpenChange={(open) => !open && !saving && setRemoveCaOpen(false)}
+        title="Remove this CA?"
+        description={`${ca.name || "This CA"} will be removed from report sharing. No workspace user account will be affected.`}
+        confirmLabel="Remove CA"
+        loading={saving}
+        onConfirm={removeCa}
       />
     </>
   );

@@ -5,6 +5,7 @@ import Invoice from "../models/Invoice.js";
 import Product from "../models/Product.js";
 import StockMovement from "../models/StockMovement.js";
 import { ApiError } from "../utils/ApiError.js";
+import { createNotification } from "../utils/createNotification.js";
 import { createCrudController } from "./crudController.js";
 import { generateCode } from "../utils/generateCode.js";
 
@@ -140,7 +141,7 @@ async function postInvoiceStock(invoice, req) {
       if (!product) {
         throw new ApiError(409, "Stock changed; please review the invoice");
       }
-      adjusted.push({ productId, quantity });
+      adjusted.push({ productId, quantity, product });
     }
     await StockMovement.insertMany(
       invoice.lines.map((line) => {
@@ -182,6 +183,29 @@ async function postInvoiceStock(invoice, req) {
         outstanding: Number(invoice.amount),
       },
     },
+  );
+  await createNotification({
+    tenantId: req.tenantId,
+    type: "success",
+    category: "sales",
+    title: "Invoice created",
+    body: `${invoice.number} created for ${invoice.customerName}`,
+    actionUrl: `/invoices/${invoice.invoiceId}`,
+  });
+  await Promise.all(
+    adjusted
+      .filter(({ product }) => product.stock <= 5)
+      .map(({ product }) =>
+        createNotification({
+          tenantId: req.tenantId,
+          type: product.stock === 0 ? "error" : "warning",
+          category: "inventory",
+          title:
+            product.stock === 0 ? "Product out of stock" : "Low stock alert",
+          body: `${product.name} has ${product.stock} ${product.unit} remaining`,
+          actionUrl: "/inventory",
+        }),
+      ),
   );
 }
 

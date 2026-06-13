@@ -213,6 +213,25 @@ export function AppShell() {
       // Leave the current state unchanged when the request fails.
     }
   };
+  const openNotification = async (item) => {
+    try {
+      if (!item.read) {
+        await api.patch(`/notifications/${item.id}/read`, { read: true });
+        setNotifications((current) =>
+          current.map((notification) =>
+            notification.id === item.id
+              ? { ...notification, read: true }
+              : notification,
+          ),
+        );
+        window.dispatchEvent(new Event("notifications:updated"));
+      }
+      setNotificationsOpen(false);
+      navigate(item.actionUrl || "/notifications");
+    } catch {
+      // Keep the dropdown usable if the read update fails.
+    }
+  };
   const unreadCount = notifications.filter((item) => !item.read).length;
 
   return (
@@ -330,9 +349,11 @@ export function AppShell() {
                       </div>
                     ) : (
                       notifications.slice(0, 5).map((item) => (
-                        <div
+                        <button
+                          type="button"
                           key={item._id || item.id}
-                          className="flex gap-3 border-b border-border px-4 py-3 last:border-0"
+                          onClick={() => openNotification(item)}
+                          className="flex w-full gap-3 border-b border-border px-4 py-3 text-left hover:bg-muted last:border-0"
                         >
                           <span
                             className={cn(
@@ -350,7 +371,7 @@ export function AppShell() {
                               {item.body || item.message}
                             </div>
                           </div>
-                        </div>
+                        </button>
                       ))
                     )}
                   </div>

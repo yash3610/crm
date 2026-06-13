@@ -2,6 +2,7 @@ import Product from "../models/Product.js";
 import StockMovement from "../models/StockMovement.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { createNotification } from "../utils/createNotification.js";
 import { generateCode } from "../utils/generateCode.js";
 
 function normalizeProduct(product) {
@@ -67,6 +68,17 @@ export const adjustStock = asyncHandler(async (req, res) => {
     reason,
     sourceType: "adjustment",
   });
+
+  if (product.stock <= 5) {
+    await createNotification({
+      tenantId: req.tenantId,
+      type: product.stock === 0 ? "error" : "warning",
+      category: "inventory",
+      title: product.stock === 0 ? "Product out of stock" : "Low stock alert",
+      body: `${product.name} has ${product.stock} ${product.unit} remaining`,
+      actionUrl: "/inventory",
+    });
+  }
 
   res.status(201).json({
     success: true,

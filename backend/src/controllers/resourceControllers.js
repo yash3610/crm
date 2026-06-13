@@ -12,6 +12,7 @@ import Invoice from "../models/Invoice.js";
 import { ApiError } from "../utils/ApiError.js";
 import { createCrudController } from "./crudController.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { createNotification } from "../utils/createNotification.js";
 import { generateCode } from "../utils/generateCode.js";
 
 async function validatePaymentOwnership(payload, req) {
@@ -289,6 +290,13 @@ async function postPurchaseStock(purchase, req) {
         { $inc: { payable: Number(purchase.amount) } },
       );
     }
+    await createNotification({
+      tenantId: req.tenantId,
+      category: "purchases",
+      title: "Purchase bill recorded",
+      body: `${purchase.number} recorded for ${purchase.supplier}`,
+      actionUrl: `/purchases/${purchase.purchaseId}`,
+    });
   } catch (error) {
     await Promise.all(
       [...quantities].map(([productId, quantity]) =>
@@ -342,6 +350,15 @@ export const customerController = createCrudController({
   idField: "customerId",
   prefix: "C",
   searchFields: ["name", "email", "phone", "city"],
+  afterCreate: async (customer, req) => {
+    await createNotification({
+      tenantId: req.tenantId,
+      category: "sales",
+      title: "New customer added",
+      body: `${customer.name} was added to your customer directory`,
+      actionUrl: "/customers",
+    });
+  },
 });
 
 export const supplierController = createCrudController({
@@ -442,6 +459,14 @@ const createCustomerPayment = asyncHandler(async (req, res) => {
       ],
     );
   }
+  await createNotification({
+    tenantId: req.tenantId,
+    type: "success",
+    category: "payments",
+    title: "Payment received",
+    body: `${invoice.customerName} paid INR ${amount.toLocaleString("en-IN")} for ${invoice.number}`,
+    actionUrl: "/payments",
+  });
   const item = payment.toJSON();
   item.mongoId = item.id;
   item.id = item.paymentId;
@@ -550,6 +575,15 @@ export const expenseController = createCrudController({
   idField: "expenseId",
   prefix: "E",
   searchFields: ["category", "vendor", "note"],
+  afterCreate: async (expense, req) => {
+    await createNotification({
+      tenantId: req.tenantId,
+      category: "expenses",
+      title: "Expense recorded",
+      body: `${expense.category} expense of INR ${Number(expense.amount).toLocaleString("en-IN")} recorded for ${expense.vendor}`,
+      actionUrl: "/expenses",
+    });
+  },
 });
 
 export const quotationController = createCrudController({
@@ -651,6 +685,14 @@ export const recordPurchasePayment = asyncHandler(async (req, res) => {
       ],
     );
   }
+  await createNotification({
+    tenantId: req.tenantId,
+    type: "success",
+    category: "payments",
+    title: "Supplier payment recorded",
+    body: `INR ${amount.toLocaleString("en-IN")} paid against ${updated.number}`,
+    actionUrl: `/purchases/${updated.purchaseId}`,
+  });
 
   res.status(201).json({
     success: true,
