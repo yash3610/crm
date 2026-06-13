@@ -1,110 +1,179 @@
 import { useState } from "react";
+import { KeyRound, Pencil, Plus, Shield, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { DataTable } from "@/components/common/DataTable";
 import {
-  PageHeader,
-  Button,
   Badge,
-  StatusBadge,
-  Modal,
+  Button,
   Field,
   Input,
+  Modal,
+  PageHeader,
   Select,
+  StatusBadge,
 } from "@/components/common/Primitives";
-import { DataTable } from "@/components/common/DataTable";
-import { Plus, Shield } from "lucide-react";
-import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
 import { useApiList } from "@/hooks/useApiList";
-const seed = [
+
+const roles = [
   {
-    id: "U1",
-    name: "Rahul Aggarwal",
-    email: "admin@billpro.io",
-    role: "Owner",
-    branch: "HQ Mumbai",
-    status: "active",
-    lastSeen: "Just now",
+    name: "Owner",
+    description: "Full workspace, billing and team control",
+    tone: "primary",
   },
   {
-    id: "U2",
-    name: "Sneha Iyer",
-    email: "sneha@billpro.io",
-    role: "Admin",
-    branch: "HQ Mumbai",
-    status: "active",
-    lastSeen: "10 min ago",
+    name: "Admin",
+    description: "Manage settings, users and business data",
+    tone: "info",
   },
   {
-    id: "U3",
-    name: "Arjun Mehta",
-    email: "arjun@billpro.io",
-    role: "Accountant",
-    branch: "Delhi",
-    status: "active",
-    lastSeen: "2 h ago",
+    name: "Accountant",
+    description: "Invoices, purchases, payments and reports",
+    tone: "success",
   },
   {
-    id: "U4",
-    name: "Priya Nair",
-    email: "priya@billpro.io",
-    role: "Sales",
-    branch: "Bengaluru",
-    status: "active",
-    lastSeen: "Yesterday",
+    name: "Sales",
+    description: "Customers, quotations and sales invoices",
+    tone: "warning",
   },
   {
-    id: "U5",
-    name: "Vikram Singh",
-    email: "vikram@billpro.io",
-    role: "Sales",
-    branch: "Pune",
-    status: "inactive",
-    lastSeen: "2 weeks ago",
+    name: "Viewer",
+    description: "Read-only access to permitted workspace data",
+    tone: "neutral",
   },
 ];
-function UsersPage() {
-  const { rows, create } = useApiList("/users", seed);
-  const [open, setOpen] = useState(false);
-  const [f, setF] = useState({
-    name: "",
-    email: "",
-    role: "Sales",
-    branch: "HQ Mumbai",
-    status: "active",
+
+const emptyForm = {
+  name: "",
+  email: "",
+  password: "",
+  role: "Sales",
+  status: "active",
+};
+
+function formatLastSeen(value) {
+  if (!value) return "Never";
+  return new Date(value).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
   });
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!f.name.trim() || !f.email.trim())
-      return toast.error("Name and email are required");
+}
+
+function UsersPage() {
+  const { user } = useAuth();
+  const { rows, loading, create, update, remove } = useApiList("/users", []);
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [deleting, setDeleting] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    setModal(true);
+  };
+
+  const openEdit = (member) => {
+    setEditing(member);
+    setForm({
+      name: member.name,
+      email: member.email,
+      password: "",
+      role: member.role,
+      status: member.status,
+    });
+    setModal(true);
+  };
+
+  const closeModal = () => {
+    if (saving) return;
+    setModal(false);
+    setEditing(null);
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!form.name.trim() || !form.email.trim()) {
+      toast.error("Name and email are required");
+      return;
+    }
+    if (!editing && form.password.length < 8) {
+      toast.error("Temporary password must be at least 8 characters");
+      return;
+    }
+
+    const payload = {
+      ...form,
+      name: form.name.trim(),
+      email: form.email.trim(),
+    };
+    if (editing && !payload.password) delete payload.password;
+
     try {
-      await create({ ...f, lastSeen: new Date().toISOString() });
-      toast.success(`Invite sent to ${f.email}`);
-      setOpen(false);
-      setF({
-        name: "",
-        email: "",
-        role: "Sales",
-        branch: "HQ Mumbai",
-        status: "active",
-      });
+      setSaving(true);
+      if (editing) {
+        await update(editing.id, payload);
+        toast.success(`${payload.name} updated`);
+      } else {
+        await create(payload);
+        toast.success(`${payload.name} added`);
+      }
+      setModal(false);
+      setEditing(null);
     } catch (error) {
       toast.error(error.message);
+    } finally {
+      setSaving(false);
     }
   };
-  const cols = [
+
+  const deleteUser = async () => {
+    if (!deleting) return;
+    try {
+      setSaving(true);
+      await remove(deleting.id);
+      toast.success(`${deleting.name} deleted`);
+      setDeleting(null);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isCurrentUser = (member) =>
+    member.id === user?.userId || member.mongoId === user?.id;
+  const canManage = (member) =>
+    !isCurrentUser(member) &&
+    member.role !== "Owner" &&
+    !(user?.role === "Admin" && member.role === "Owner");
+
+  const columns = [
     {
       key: "name",
       header: "Member",
-      render: (r) => (
+      render: (member) => (
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-accent text-accent-foreground grid place-items-center text-xs font-semibold">
-            {r.name
+          <div className="grid h-9 w-9 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
+            {member.name
               .split(" ")
-              .map((s) => s[0])
+              .map((part) => part[0])
               .slice(0, 2)
               .join("")}
           </div>
           <div>
-            <div className="font-medium">{r.name}</div>
-            <div className="text-xs text-muted-foreground">{r.email}</div>
+            <div className="font-medium">
+              {member.name}
+              {isCurrentUser(member) && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  (You)
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">{member.email}</div>
           </div>
         </div>
       ),
@@ -112,137 +181,229 @@ function UsersPage() {
     {
       key: "role",
       header: "Role",
-      render: (r) => (
+      render: (member) => (
         <Badge
           tone={
-            r.role === "Owner"
-              ? "primary"
-              : r.role === "Admin"
-                ? "info"
-                : "neutral"
+            roles.find((role) => role.name === member.role)?.tone || "neutral"
           }
         >
-          {r.role}
+          {member.role}
         </Badge>
-      ),
-    },
-    { key: "branch", header: "Branch", render: (r) => r.branch },
-    {
-      key: "lastSeen",
-      header: "Last seen",
-      render: (r) => (
-        <span className="text-muted-foreground">{r.lastSeen}</span>
       ),
     },
     {
       key: "status",
       header: "Status",
-      render: (r) => <StatusBadge status={r.status} />,
+      render: (member) => <StatusBadge status={member.status} />,
+    },
+    {
+      key: "lastSeen",
+      header: "Last seen",
+      render: (member) => (
+        <span className="text-muted-foreground">
+          {formatLastSeen(member.lastSeen)}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      className: "text-right",
+      render: (member) => (
+        <div className="flex justify-end gap-2">
+          {!(user?.role === "Admin" && member.role === "Owner") && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openEdit(member)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
+            </Button>
+          )}
+          {canManage(member) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleting(member)}
+              aria-label={`Delete ${member.name}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      ),
     },
   ];
-  const roleCounts = (role) => rows.filter((r) => r.role === role).length;
+
   return (
     <>
       <PageHeader
         title="Users & Roles"
-        subtitle="Team members, permissions and access control"
+        subtitle="Manage team members, role assignments and workspace access"
         actions={
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" /> Invite member
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Add member
           </Button>
         }
       />
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { role: "Owner", desc: "Full access to all modules and billing" },
-          { role: "Admin", desc: "Manage data, settings, and team members" },
-          { role: "Accountant", desc: "Books, invoices and reports" },
-          { role: "Sales", desc: "Quotations, invoices and customers" },
-        ].map((r) => (
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {roles.map((role) => (
           <div
-            key={r.role}
+            key={role.name}
             className="rounded-xl border border-border bg-card p-4"
           >
-            <div className="flex items-center gap-2 mb-2">
-              <Shield className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold">{r.role}</span>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold">{role.name}</span>
+              </div>
+              <Badge tone={role.tone}>
+                {rows.filter((member) => member.role === role.name).length}
+              </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">{r.desc}</p>
-            <div className="mt-3 text-2xl font-semibold tabular-nums">
-              {roleCounts(r.role)}
-            </div>
+            <p className="text-xs text-muted-foreground">{role.description}</p>
           </div>
         ))}
       </div>
+
       <DataTable
         rows={rows}
-        columns={cols}
-        searchKeys={["name", "email", "branch"]}
+        columns={columns}
+        searchKeys={["name", "email", "role", "status"]}
+        toolbar={
+          loading ? (
+            <span className="text-xs text-muted-foreground">
+              Loading users...
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {rows.filter((member) => member.status === "active").length}{" "}
+              active
+            </span>
+          )
+        }
       />
+
       <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Invite team member"
-        description="Send an email invitation with a role"
+        open={modal}
+        onClose={closeModal}
+        title={editing ? "Edit team member" : "Add team member"}
+        description={
+          editing
+            ? "Update role, status or reset the password"
+            : "Create a workspace login and assign its access"
+        }
         footer={
           <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
+            <Button variant="ghost" onClick={closeModal} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={submit}>Send invite</Button>
+            <Button onClick={submit} disabled={saving}>
+              {saving ? "Saving..." : editing ? "Save changes" : "Add member"}
+            </Button>
           </>
         }
       >
         <form
           onSubmit={submit}
-          className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2"
         >
           <Field label="Full name" required>
             <Input
-              value={f.name}
-              onChange={(e) => setF({ ...f, name: e.target.value })}
-              placeholder="Aarav Sharma"
+              required
+              value={form.name}
+              onChange={(event) =>
+                setForm({ ...form, name: event.target.value })
+              }
             />
           </Field>
           <Field label="Work email" required>
             <Input
+              required
               type="email"
-              value={f.email}
-              onChange={(e) => setF({ ...f, email: e.target.value })}
-              placeholder="aarav@billpro.io"
+              value={form.email}
+              onChange={(event) =>
+                setForm({ ...form, email: event.target.value })
+              }
             />
           </Field>
           <Field label="Role">
             <Select
-              value={f.role}
-              onChange={(e) => setF({ ...f, role: e.target.value })}
+              className="w-full"
+              value={form.role}
+              disabled={
+                editing?.role === "Owner" || (editing && isCurrentUser(editing))
+              }
+              onChange={(event) =>
+                setForm({ ...form, role: event.target.value })
+              }
             >
-              {["Owner", "Admin", "Accountant", "Sales"].map((r) => (
-                <option key={r}>{r}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Branch">
-            <Select
-              value={f.branch}
-              onChange={(e) => setF({ ...f, branch: e.target.value })}
-            >
-              {["HQ Mumbai", "Delhi", "Bengaluru", "Pune"].map((r) => (
-                <option key={r}>{r}</option>
-              ))}
+              {editing?.role === "Owner" && (
+                <option value="Owner">Owner</option>
+              )}
+              {roles
+                .filter((role) => role.name !== "Owner")
+                .map((role) => (
+                  <option key={role.name} value={role.name}>
+                    {role.name}
+                  </option>
+                ))}
             </Select>
           </Field>
           <Field label="Status">
             <Select
-              value={f.status}
-              onChange={(e) => setF({ ...f, status: e.target.value })}
+              className="w-full"
+              value={form.status}
+              disabled={
+                editing?.role === "Owner" || (editing && isCurrentUser(editing))
+              }
+              onChange={(event) =>
+                setForm({ ...form, status: event.target.value })
+              }
             >
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </Select>
           </Field>
+          <Field
+            label={editing ? "New password" : "Temporary password"}
+            required={!editing}
+            hint={
+              editing
+                ? "Leave blank to keep the current password"
+                : "Minimum 8 characters"
+            }
+          >
+            <div className="relative">
+              <KeyRound className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                type="password"
+                minLength={8}
+                required={!editing}
+                value={form.password}
+                onChange={(event) =>
+                  setForm({ ...form, password: event.target.value })
+                }
+              />
+            </div>
+          </Field>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(open) => !open && !saving && setDeleting(null)}
+        title="Delete this user?"
+        description={`${deleting?.name || "This user"} will permanently lose workspace access.`}
+        confirmLabel="Delete user"
+        loading={saving}
+        onConfirm={deleteUser}
+      />
     </>
   );
 }

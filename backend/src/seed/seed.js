@@ -3,7 +3,6 @@ import "dotenv/config";
 import mongoose from "mongoose";
 
 import { connectDatabase } from "../config/db.js";
-import Branch from "../models/Branch.js";
 import Customer from "../models/Customer.js";
 import Expense from "../models/Expense.js";
 import Invoice from "../models/Invoice.js";
@@ -134,7 +133,6 @@ async function seed() {
   await connectDatabase();
 
   await Promise.all([
-    Branch.deleteMany({}),
     Customer.deleteMany({}),
     Expense.deleteMany({}),
     Invoice.deleteMany({}),
@@ -226,28 +224,6 @@ async function seed() {
           date: "2026-06-01",
           amount: 42000,
           status: "paid",
-        },
-      ]),
-    ),
-    Branch.insertMany(
-      scoped([
-        {
-          branchId: "B1",
-          name: "HQ Mumbai",
-          address: "Andheri East, Mumbai 400069",
-          phone: "+91 22 4000 1100",
-          team: 14,
-          revenue: 1820000,
-          status: "active",
-        },
-        {
-          branchId: "B2",
-          name: "Delhi",
-          address: "Connaught Place, New Delhi 110001",
-          phone: "+91 11 4500 2200",
-          team: 7,
-          revenue: 640000,
-          status: "active",
         },
       ]),
     ),
@@ -356,7 +332,6 @@ async function seed() {
     email: "admin@billpro.io",
     password: "demo1234",
     role: "Owner",
-    branch: "HQ Mumbai",
     status: "active",
   });
 

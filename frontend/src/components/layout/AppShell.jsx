@@ -14,7 +14,6 @@ import {
   TrendingUp,
   Calculator,
   Settings,
-  Building2,
   Shield,
   Bell,
   Search,
@@ -74,7 +73,6 @@ const nav = [
     label: "Admin",
     items: [
       { to: "/users", label: "Users & Roles", icon: Shield },
-      { to: "/branches", label: "Branches", icon: Building2 },
       { to: "/notifications", label: "Notifications", icon: Bell },
       { to: "/settings", label: "Settings", icon: Settings },
     ],

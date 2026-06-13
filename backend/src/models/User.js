@@ -26,7 +26,6 @@ const userSchema = new mongoose.Schema(
       enum: ["Owner", "Admin", "Accountant", "Sales", "Viewer"],
       default: "Viewer",
     },
-    branch: { type: String, default: "HQ Mumbai" },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     lastSeen: { type: Date },
   },

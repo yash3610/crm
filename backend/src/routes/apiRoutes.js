@@ -11,7 +11,6 @@ import {
   notificationController,
 } from "../controllers/notificationController.js";
 import {
-  branchController,
   customerController,
   expenseController,
   paymentController,
@@ -85,7 +84,6 @@ router.use(
     writeRoles: ["Owner", "Admin", "Accountant"],
   }),
 );
-router.use("/branches", createCrudRouter(branchController));
 router.use(
   "/users",
   allowRoles("Owner", "Admin"),

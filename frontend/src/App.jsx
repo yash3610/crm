@@ -4,7 +4,6 @@ import { Toaster } from "sonner";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Accounting from "@/pages/Accounting";
-import Branches from "@/pages/Branches";
 import Customers from "@/pages/Customers";
 import Dashboard from "@/pages/Dashboard";
 import Expenses from "@/pages/Expenses";
@@ -68,7 +67,6 @@ function App() {
             <Route path="reports" element={<Reports />} />
             <Route path="accounting" element={<Accounting />} />
             <Route path="users" element={<Users />} />
-            <Route path="branches" element={<Branches />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="404" element={<NotFound />} />
             <Route path="*" element={<Navigate to="/404" replace />} />

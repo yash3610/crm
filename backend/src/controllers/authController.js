@@ -1,7 +1,6 @@
 import jwt from "jsonwebtoken";
 
 import { getJwtSecret, jwtOptions } from "../config/security.js";
-import Branch from "../models/Branch.js";
 import Setting from "../models/Setting.js";
 import Tenant from "../models/Tenant.js";
 import User from "../models/User.js";
@@ -76,24 +75,14 @@ export const register = asyncHandler(async (req, res) => {
       email: normalizedEmail,
       password,
       role: "Owner",
-      branch: "Head Office",
       lastSeen: new Date(),
     });
 
-    await Promise.all([
-      Branch.create({
-        tenantId: tenant._id,
-        branchId: generateCode("B"),
-        name: "Head Office",
-        address: "Update your company address in settings",
-        status: "active",
-      }),
-      Setting.create({
-        tenantId: tenant._id,
-        key: "company",
-        value: { name: company, displayName: company },
-      }),
-    ]);
+    await Setting.create({
+      tenantId: tenant._id,
+      key: "company",
+      value: { name: company, displayName: company },
+    });
 
     res.status(201).json({
       success: true,
@@ -103,7 +92,6 @@ export const register = asyncHandler(async (req, res) => {
   } catch (error) {
     await Promise.all([
       User.deleteMany({ tenantId: tenant._id }),
-      Branch.deleteMany({ tenantId: tenant._id }),
       Setting.deleteMany({ tenantId: tenant._id }),
       Tenant.findByIdAndDelete(tenant._id),
     ]);

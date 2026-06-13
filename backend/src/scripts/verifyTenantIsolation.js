@@ -5,7 +5,6 @@ import mongoose from "mongoose";
 
 import app from "../app.js";
 import { connectDatabase } from "../config/db.js";
-import Branch from "../models/Branch.js";
 import Customer from "../models/Customer.js";
 import Expense from "../models/Expense.js";
 import Invoice from "../models/Invoice.js";
@@ -21,7 +20,6 @@ import Tenant from "../models/Tenant.js";
 import User from "../models/User.js";
 
 const tenantModels = [
-  Branch,
   Customer,
   Expense,
   Invoice,

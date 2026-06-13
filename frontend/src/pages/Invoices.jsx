@@ -74,7 +74,7 @@ function InvoicesPage() {
     <>
       <PageHeader
         title="Invoices"
-        subtitle="All invoices across customers and branches"
+        subtitle="All customer invoices in your workspace"
         actions={
           <>
             <Button

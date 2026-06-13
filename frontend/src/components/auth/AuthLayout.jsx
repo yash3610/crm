@@ -36,7 +36,7 @@ export function AuthLayout({ title, subtitle, children, footer }) {
               <ShieldCheck className="h-4 w-4" /> GST-compliant invoicing
             </li>
             <li className="flex items-center gap-2.5">
-              <Zap className="h-4 w-4" /> Multi-branch, multi-user ready
+              <Zap className="h-4 w-4" /> Multi-user workspace ready
             </li>
           </ul>
         </div>

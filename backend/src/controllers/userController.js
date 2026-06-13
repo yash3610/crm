@@ -5,6 +5,8 @@ import User from "../models/User.js";
 import { ApiError } from "../utils/ApiError.js";
 import { createCrudController } from "./crudController.js";
 
+const MANAGEABLE_ROLES = ["Owner", "Admin", "Accountant", "Sales", "Viewer"];
+
 async function findTargetUser(req) {
   const conditions = [{ userId: req.params.id }];
   if (mongoose.isValidObjectId(req.params.id)) {
@@ -19,38 +21,77 @@ async function assertCanManageUser(req, payload = {}) {
   if (req.user.role === "Admin" && target.role === "Owner") {
     throw new ApiError(403, "Admins cannot manage an owner account");
   }
+  if (
+    target.role === "Owner" &&
+    (payload.status === "inactive" ||
+      (payload.role !== undefined && payload.role !== "Owner"))
+  ) {
+    throw new ApiError(400, "The workspace owner cannot be disabled or reassigned");
+  }
   if (req.user._id.equals(target._id)) {
-    if (payload.status === "inactive" || payload.role !== undefined) {
+    if (
+      payload.status === "inactive" ||
+      (payload.role !== undefined && payload.role !== target.role)
+    ) {
       throw new ApiError(400, "You cannot disable or change your own role");
     }
   }
   return target;
 }
 
+async function validateUserPayload(payload, req, target) {
+  const clean = { ...payload };
+
+  if (clean.name !== undefined) clean.name = clean.name.trim();
+  if (clean.email !== undefined) clean.email = clean.email.trim().toLowerCase();
+
+  if (clean.role !== undefined && !MANAGEABLE_ROLES.includes(clean.role)) {
+    throw new ApiError(400, "Select a valid role");
+  }
+  if (!clean.name && (!target || clean.name !== undefined)) {
+    throw new ApiError(400, "Name is required");
+  }
+  if (!clean.email && (!target || clean.email !== undefined)) {
+    throw new ApiError(400, "Email is required");
+  }
+  return clean;
+}
+
 export const userController = createCrudController({
   Model: User,
   idField: "userId",
   prefix: "U",
-  searchFields: ["name", "email", "role", "branch"],
+  searchFields: ["name", "email", "role"],
   beforeCreate: async (payload, req) => {
-    if (req.user.role === "Admin" && payload.role === "Owner") {
-      throw new ApiError(403, "Admins cannot create an owner account");
+    const clean = await validateUserPayload(payload, req);
+    if (clean.role === "Owner") {
+      throw new ApiError(400, "This workspace already has an owner");
     }
     return {
-      ...payload,
-      password: payload.password || "Welcome@123",
+      ...clean,
+      password: clean.password || "Welcome@123",
     };
   },
   beforeUpdate: async (payload, req) => {
-    await assertCanManageUser(req, payload);
-    if (payload.password) {
-      return { ...payload, password: await bcrypt.hash(payload.password, 12) };
+    const target = await assertCanManageUser(req, payload);
+    const clean = await validateUserPayload(payload, req, target);
+    if (clean.role === "Owner" && target.role !== "Owner") {
+      throw new ApiError(400, "This workspace already has an owner");
     }
-    delete payload.password;
-    return payload;
+    if (clean.password) {
+      if (clean.password.length < 8) {
+        throw new ApiError(400, "Password must be at least 8 characters");
+      }
+      return { ...clean, password: await bcrypt.hash(clean.password, 12) };
+    }
+    delete clean.password;
+    return clean;
   },
   beforeRemove: async (req) => {
     const target = await assertCanManageUser(req);
+    if (target.role === "Owner") {
+      throw new ApiError(400, "The workspace owner cannot be deleted");
+    }
     if (req.user._id.equals(target._id)) {
       throw new ApiError(400, "You cannot delete your own account");
     }

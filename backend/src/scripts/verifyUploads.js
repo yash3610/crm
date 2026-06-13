@@ -8,7 +8,6 @@ import mongoose from "mongoose";
 
 import app from "../app.js";
 import { connectDatabase } from "../config/db.js";
-import Branch from "../models/Branch.js";
 import Setting from "../models/Setting.js";
 import Tenant from "../models/Tenant.js";
 import User from "../models/User.js";
@@ -82,7 +81,6 @@ async function verify() {
   } finally {
     if (tenantId) {
       await Promise.all([
-        Branch.deleteMany({ tenantId }),
         Setting.deleteMany({ tenantId }),
         User.deleteMany({ tenantId }),
         Tenant.findByIdAndDelete(tenantId),

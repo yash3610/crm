@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-import Branch from "../models/Branch.js";
 import Customer from "../models/Customer.js";
 import Expense from "../models/Expense.js";
 import Payment from "../models/Payment.js";
@@ -658,11 +657,4 @@ export const recordPurchasePayment = asyncHandler(async (req, res) => {
     message: "Supplier payment recorded",
     data: updated.toJSON(),
   });
-});
-
-export const branchController = createCrudController({
-  Model: Branch,
-  idField: "branchId",
-  prefix: "B",
-  searchFields: ["name", "address", "phone"],
 });

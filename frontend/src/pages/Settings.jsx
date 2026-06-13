@@ -13,7 +13,6 @@ import {
   Mail,
   MessageCircle,
   Palette,
-  Plus,
   Printer,
   Receipt,
   Save,
@@ -141,7 +140,7 @@ const plans = [
     name: "Growth",
     monthly: 999,
     yearly: 9990,
-    description: "For growing teams and multiple branches",
+    description: "For growing teams with advanced operations",
     features: ["5 users", "Unlimited invoices", "GST reports", "Inventory"],
   },
   {
@@ -152,7 +151,7 @@ const plans = [
     description: "Advanced control for established businesses",
     features: [
       "Unlimited users",
-      "Multi-branch",
+      "Advanced team controls",
       "Custom invoice themes",
       "CA sharing",
     ],
@@ -330,7 +329,6 @@ function SettingsPage() {
     email: "",
     password: "",
     role: "Sales",
-    branch: "Head Office",
     status: "active",
   });
 
@@ -410,7 +408,6 @@ function SettingsPage() {
         email: "",
         password: "",
         role: "Sales",
-        branch: "Head Office",
         status: "active",
       });
     } catch (error) {
@@ -1134,9 +1131,13 @@ function SettingsPage() {
                   title="Manage users"
                   subtitle="Team members, roles and workspace access"
                   action={
-                    <Button onClick={() => setUserModal(true)}>
-                      <Plus className="h-4 w-4" /> Add user
-                    </Button>
+                    <Link
+                      to="/users"
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
+                    >
+                      <Users className="h-4 w-4" />
+                      Users & roles
+                    </Link>
                   }
                 />
                 <div className="space-y-5 p-5">
@@ -1167,7 +1168,6 @@ function SettingsPage() {
                         <tr>
                           <th className="px-4 py-3">User</th>
                           <th className="px-4 py-3">Role</th>
-                          <th className="px-4 py-3">Branch</th>
                           <th className="px-4 py-3">Status</th>
                           <th className="px-4 py-3">Last seen</th>
                         </tr>
@@ -1184,7 +1184,6 @@ function SettingsPage() {
                             <td className="px-4 py-3">
                               <Badge tone="info">{item.role}</Badge>
                             </td>
-                            <td className="px-4 py-3">{item.branch}</td>
                             <td className="px-4 py-3">
                               <StatusBadge status={item.status} />
                             </td>
@@ -1567,14 +1566,6 @@ function SettingsPage() {
               <option>Sales</option>
               <option>Viewer</option>
             </Select>
-          </SettingField>
-          <SettingField label="Branch">
-            <Input
-              value={userForm.branch}
-              onChange={(e) =>
-                setUserForm({ ...userForm, branch: e.target.value })
-              }
-            />
           </SettingField>
           <SettingField label="Temporary password" className="sm:col-span-2">
             <Input
