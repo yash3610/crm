@@ -38,6 +38,7 @@ function withInvoiceStatus(item) {
     new Date(item.dueDate).getTime() < Date.now();
   return {
     ...item,
+    customerId: item.customer,
     customer: item.customerName,
     status: overdue ? "overdue" : item.status,
   };

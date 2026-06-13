@@ -182,16 +182,27 @@
 @media print {
   @page {
     size: A4;
-    margin: 12mm;
+    margin: 0;
   }
 
   html,
   body,
   #root {
+    width: 210mm !important;
+    min-height: 297mm !important;
     height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
     overflow: visible !important;
     background: white !important;
     color: black !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   body * {
@@ -207,7 +218,8 @@
     position: absolute !important;
     inset: 0 auto auto 0 !important;
     display: block !important;
-    width: 100% !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -217,6 +229,16 @@
     box-shadow: none !important;
     background: white !important;
     color: black !important;
+  }
+
+  .print-document > .invoice-document {
+    box-sizing: border-box !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 12mm !important;
+    box-shadow: none !important;
   }
 
   .print-document table {

@@ -33,6 +33,7 @@ import {
   Select,
   StatusBadge,
 } from "@/components/common/Primitives";
+import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
 import { useAuth } from "@/context/AuthContext";
 import { useApiList } from "@/hooks/useApiList";
 import { api, assetUrl } from "@/lib/api";
@@ -67,6 +68,11 @@ const defaults = {
     gstin: "",
     pan: "",
     website: "",
+    bankName: "",
+    accountName: "",
+    accountNumber: "",
+    ifsc: "",
+    upiId: "",
     registrationDocument: "",
     gstCertificate: "",
     panCard: "",
@@ -75,7 +81,7 @@ const defaults = {
     tcs: false,
   },
   invoice: {
-    theme: "modern",
+    theme: "professional",
     accent: "#4f46e5",
     showBalance: true,
     showDescription: true,
@@ -83,11 +89,14 @@ const defaults = {
     showTime: false,
     showHsn: true,
     showDiscount: true,
+    showLogo: true,
+    showSignature: true,
+    showPaymentDetails: true,
     terms: "Payment is due within 14 days.",
   },
   print: {
     mode: "a4",
-    theme: "compact",
+    theme: "invoice",
     paperSize: "3",
     showBalance: true,
     showDescription: true,
@@ -276,136 +285,33 @@ function SectionHeader({ title, subtitle, onSave, saving, action }) {
   );
 }
 
-function InvoicePreview({ business, invoice, compact = false }) {
-  const subtotal = sampleItems.reduce(
-    (total, item) => total + item.qty * item.rate,
-    0,
-  );
-  const tax = sampleItems.reduce(
-    (total, item) => total + (item.qty * item.rate * item.tax) / 100,
-    0,
-  );
-
+function InvoicePreview({
+  business,
+  invoice,
+  printSettings = {},
+  compact = false,
+}) {
   return (
-    <div
-      className={cn(
-        "mx-auto bg-white text-slate-900 shadow-sm",
-        compact
-          ? "w-[310px] min-h-[620px] p-5 text-[11px]"
-          : "w-full max-w-[760px] min-h-[760px] p-8 text-sm",
-      )}
-      style={{ borderTop: `5px solid ${invoice.accent}` }}
-    >
-      <div className="flex items-start justify-between border-b border-slate-200 pb-5">
-        <div>
-          <div className="flex items-center gap-3">
-            {business.logo && (
-              <img
-                src={assetUrl(business.logo)}
-                alt=""
-                className="h-10 w-10 object-contain"
-              />
-            )}
-            <div
-              className="text-xl font-bold"
-              style={{ color: invoice.accent }}
-            >
-              {business.name || "Your Business"}
-            </div>
-          </div>
-          {invoice.showPhone && (
-            <div>{business.phone || "+91 90000 00000"}</div>
-          )}
-          <div>{business.address || "Business address"}</div>
-        </div>
-        <div className="text-right">
-          <div className="text-lg font-bold">TAX INVOICE</div>
-          <div>INV-2026-1008</div>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-6 border-b border-slate-200 py-5">
-        <div>
-          <div className="text-xs uppercase text-slate-500">Bill to</div>
-          <div className="font-semibold">Acme Traders</div>
-          <div>Mumbai, Maharashtra</div>
-          {invoice.showPhone && <div>+91 98101 22334</div>}
-        </div>
-        <div className="text-right">
-          <div>Invoice date: 12 Jun 2026</div>
-          <div>Due date: 26 Jun 2026</div>
-          {invoice.showTime && <div>Time: 01:20 PM</div>}
-        </div>
-      </div>
-      <table className="mt-5 w-full">
-        <thead>
-          <tr className="border-b border-slate-300 text-left">
-            <th className="py-2">Item</th>
-            {invoice.showHsn && <th className="py-2">HSN</th>}
-            <th className="py-2 text-right">Qty</th>
-            <th className="py-2 text-right">Rate</th>
-            <th className="py-2 text-right">Tax</th>
-            <th className="py-2 text-right">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sampleItems.map((item, index) => (
-            <tr key={item.name} className="border-b border-slate-100">
-              <td className="py-3">
-                <div className="font-medium">{item.name}</div>
-                {invoice.showDescription && (
-                  <div className="text-slate-500">Product description</div>
-                )}
-              </td>
-              {invoice.showHsn && <td>{`84${index + 10}`}</td>}
-              <td className="text-right">{item.qty}</td>
-              <td className="text-right">
-                {item.rate.toLocaleString("en-IN")}
-              </td>
-              <td className="text-right">{item.tax}%</td>
-              <td className="text-right">
-                {(item.qty * item.rate).toLocaleString("en-IN")}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="mt-6 ml-auto w-64 space-y-2">
-        <div className="flex justify-between">
-          <span>Subtotal</span>
-          <span>INR {subtotal.toLocaleString("en-IN")}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>GST</span>
-          <span>INR {tax.toLocaleString("en-IN")}</span>
-        </div>
-        <div className="flex justify-between border-t border-slate-300 pt-2 font-bold">
-          <span>Total</span>
-          <span>INR {(subtotal + tax).toLocaleString("en-IN")}</span>
-        </div>
-        {invoice.showBalance && (
-          <div className="flex justify-between text-slate-600">
-            <span>Balance due</span>
-            <span>INR {(subtotal + tax).toLocaleString("en-IN")}</span>
-          </div>
-        )}
-      </div>
-      <div className="mt-10 border-t border-slate-200 pt-4 text-slate-600">
-        <div className="font-semibold text-slate-900">Terms & conditions</div>
-        <div>{invoice.terms}</div>
-        {business.signature && (
-          <div className="mt-6 ml-auto w-36 text-center">
-            <img
-              src={assetUrl(business.signature)}
-              alt=""
-              className="mx-auto h-12 max-w-full object-contain"
-            />
-            <div className="border-t border-slate-400 pt-1">
-              Authorized signatory
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    <InvoiceDocument
+      business={business}
+      customer={{
+        name: "Acme Traders",
+        phone: "+91 98101 22334",
+        email: "billing@acme.in",
+        city: "Mumbai, Maharashtra",
+        gstin: "27XYZAB1234C1Z2",
+      }}
+      invoice={{
+        number: "INV-2026-1008",
+        date: "2026-06-12",
+        dueDate: "2026-06-26",
+        lines: sampleItems,
+      }}
+      settings={invoice}
+      printSettings={printSettings}
+      compact={compact}
+      className="shadow-sm"
+    />
   );
 }
 
@@ -432,22 +338,32 @@ function SettingsPage() {
     api
       .get("/settings")
       .then((data) => {
-        setSettings((current) => ({
-          ...current,
-          ...data,
-          account: {
+        setSettings((current) => {
+          const merged = { ...current };
+          Object.entries(data).forEach(([key, value]) => {
+            merged[key] =
+              value && typeof value === "object" && !Array.isArray(value)
+                ? { ...(current[key] || {}), ...value }
+                : value;
+          });
+          merged.account = {
             ...current.account,
             name: user?.name || "",
             email: user?.email || "",
-            ...data.account,
-          },
-          business: {
+            ...(data.account || {}),
+          };
+          merged.business = {
             ...current.business,
             ...(data.company || {}),
             ...(data.tax || {}),
-            ...data.business,
-          },
-        }));
+            ...(data.business || {}),
+          };
+          if (merged.print && merged.print.theme !== "invoice") {
+            merged.print.theme = "invoice";
+          }
+          merged.invoice.theme = "professional";
+          return merged;
+        });
       })
       .catch((error) => toast.error(error.message))
       .finally(() => setLoading(false));
@@ -987,6 +903,53 @@ function SettingsPage() {
                       </div>
                     </Card>
                   </div>
+
+                  <Card className="p-5 sm:p-6">
+                    <div className="mb-5">
+                      <h3 className="font-semibold">Payment details</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Bank and UPI details shown on invoices when enabled
+                      </p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                      <SettingField label="Bank name">
+                        <Input
+                          value={section.bankName}
+                          onChange={(e) => update("bankName", e.target.value)}
+                        />
+                      </SettingField>
+                      <SettingField label="Account holder">
+                        <Input
+                          value={section.accountName}
+                          onChange={(e) =>
+                            update("accountName", e.target.value)
+                          }
+                        />
+                      </SettingField>
+                      <SettingField label="Account number">
+                        <Input
+                          value={section.accountNumber}
+                          onChange={(e) =>
+                            update("accountNumber", e.target.value)
+                          }
+                        />
+                      </SettingField>
+                      <SettingField label="IFSC code">
+                        <Input
+                          value={section.ifsc}
+                          onChange={(e) =>
+                            update("ifsc", e.target.value.toUpperCase())
+                          }
+                        />
+                      </SettingField>
+                      <SettingField label="UPI ID">
+                        <Input
+                          value={section.upiId}
+                          onChange={(e) => update("upiId", e.target.value)}
+                        />
+                      </SettingField>
+                    </div>
+                  </Card>
                 </div>
               </>
             )}
@@ -1008,24 +971,18 @@ function SettingsPage() {
                   </div>
                   <div className="space-y-5 border-t border-border bg-card p-5 xl:border-l xl:border-t-0">
                     <div>
-                      <h3 className="font-semibold">Themes</h3>
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        {["modern", "classic", "minimal"].map((theme) => (
-                          <button
-                            type="button"
-                            key={theme}
-                            onClick={() => update("theme", theme)}
-                            className={cn(
-                              "rounded-lg border p-3 text-xs capitalize",
-                              section.theme === theme
-                                ? "border-primary bg-primary/5 text-primary"
-                                : "border-border",
-                            )}
-                          >
-                            <FileText className="mx-auto mb-2 h-7 w-7" />
-                            {theme}
-                          </button>
-                        ))}
+                      <h3 className="font-semibold">Invoice layout</h3>
+                      <div className="mt-3 flex items-center gap-3 rounded-lg border border-primary bg-primary/5 p-3 text-primary">
+                        <FileText className="h-7 w-7 shrink-0" />
+                        <div>
+                          <div className="text-sm font-semibold">
+                            Professional
+                          </div>
+                          <div className="text-xs opacity-80">
+                            Logo, billing details, payment box, tax summary and
+                            signature
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div>
@@ -1060,6 +1017,9 @@ function SettingsPage() {
                       ["showTime", "Show invoice time"],
                       ["showHsn", "Show HSN/SAC column"],
                       ["showDiscount", "Show discount column"],
+                      ["showLogo", "Show business logo"],
+                      ["showSignature", "Show authorized signature"],
+                      ["showPaymentDetails", "Show bank/payment details"],
                     ].map(([key, label]) => (
                       <Toggle
                         key={key}
@@ -1094,10 +1054,12 @@ function SettingsPage() {
                       business={settings.business}
                       invoice={{
                         ...settings.invoice,
+                        theme: "professional",
                         showBalance: section.showBalance,
                         showDescription: section.showDescription,
                         showTime: section.showTime,
                       }}
+                      printSettings={section}
                       compact={section.mode === "thermal"}
                     />
                   </div>
@@ -1118,17 +1080,9 @@ function SettingsPage() {
                         </Button>
                       ))}
                     </div>
-                    <SettingField label="Print theme">
-                      <Select
-                        value={section.theme}
-                        onChange={(e) => update("theme", e.target.value)}
-                      >
-                        <option value="compact">Compact</option>
-                        <option value="advanced">Advanced</option>
-                        <option value="simple">Simple</option>
-                        <option value="classic">Classic</option>
-                      </Select>
-                    </SettingField>
+                    <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
+                      Print uses the Professional invoice layout.
+                    </div>
                     {section.mode === "thermal" && (
                       <SettingField label="Paper size">
                         <Select

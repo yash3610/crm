@@ -1,21 +1,49 @@
-import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { ArrowLeft, Download, Printer, Send } from "lucide-react";
+import { toast } from "sonner";
+
 import {
-  PageHeader,
-  Card,
   Button,
+  Card,
+  PageHeader,
   StatusBadge,
 } from "@/components/common/Primitives";
-import { invoices, formatINR } from "@/data/mock";
-import { ArrowLeft, Download, Send, Printer } from "lucide-react";
-import { toast } from "sonner";
+import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
+import { formatINR, invoices } from "@/data/mock";
 import { api } from "@/lib/api";
 import { printDocument } from "@/lib/printDocument";
+
 const sampleLines = [
   { name: "Premium Widget", qty: 12, price: 1499, gst: 18 },
   { name: "Industrial Gear 22mm", qty: 4, price: 899, gst: 18 },
   { name: "Stretch Film Roll", qty: 6, price: 320, gst: 12 },
 ];
+
+const defaultInvoiceSettings = {
+  theme: "professional",
+  accent: "#4f46e5",
+  showBalance: true,
+  showDescription: true,
+  showPhone: true,
+  showTime: false,
+  showHsn: true,
+  showDiscount: true,
+  showLogo: true,
+  showSignature: true,
+  showPaymentDetails: true,
+  terms: "Payment is due within 14 days.",
+};
+
+const defaultPrintSettings = {
+  theme: "invoice",
+  showBalance: true,
+  showDescription: true,
+  showTime: false,
+  showTaxBreakup: true,
+  showSignature: true,
+};
+
 function InvoiceDetail() {
   const { id } = useParams();
   const [inv, setInvoice] = useState(
@@ -23,50 +51,57 @@ function InvoiceDetail() {
   );
   const [documentSettings, setDocumentSettings] = useState({
     business: {},
-    invoice: {
-      accent: "#4f46e5",
-      showBalance: true,
-      showDescription: true,
-      showPhone: true,
-      showTime: false,
-      showHsn: true,
-      showDiscount: true,
-      terms: "Payment is due within 14 days.",
-    },
+    invoice: defaultInvoiceSettings,
+    print: defaultPrintSettings,
   });
+  const [customer, setCustomer] = useState({});
 
   useEffect(() => {
     Promise.all([api.get(`/invoices/${id}`), api.get("/settings")])
-      .then(([invoice, settings]) => {
+      .then(async ([invoice, settings]) => {
         setInvoice(invoice);
-        setDocumentSettings((current) => ({
+        if (invoice.customerId) {
+          setCustomer(await api.get(`/customers/${invoice.customerId}`));
+        } else {
+          setCustomer({ name: invoice.customerName || invoice.customer });
+        }
+        setDocumentSettings({
           business: {
             ...(settings.company || {}),
             ...(settings.tax || {}),
             ...(settings.business || {}),
           },
-          invoice: { ...current.invoice, ...(settings.invoice || {}) },
-        }));
+          invoice: {
+            ...defaultInvoiceSettings,
+            ...(settings.invoice || {}),
+          },
+          print: {
+            ...defaultPrintSettings,
+            ...(settings.print || {}),
+          },
+        });
       })
       .catch((error) => toast.error(error.message));
   }, [id]);
+
   const lines = inv.lines?.length ? inv.lines : sampleLines;
-  const subtotal = lines.reduce((sum, line) => {
-    const base = line.qty * line.price;
-    return sum + base - (base * Number(line.discount || 0)) / 100;
-  }, 0);
-  const gst = lines.reduce((sum, line) => {
-    const base = line.qty * line.price;
-    const taxable = base - (base * Number(line.discount || 0)) / 100;
-    return sum + (taxable * line.gst) / 100;
-  }, 0);
-  const total = subtotal + gst;
-  const balance = Math.max(
-    0,
-    Number(inv.amount || total) - Number(inv.paidAmount || 0),
-  );
-  const business = documentSettings.business;
-  const invoiceSettings = documentSettings.invoice;
+  const total =
+    Number(inv.amount) ||
+    lines.reduce((sum, line) => {
+      const base = Number(line.qty) * Number(line.price);
+      const taxable = base - (base * Number(line.discount || 0)) / 100;
+      return sum + taxable * (1 + Number(line.gst || 0) / 100);
+    }, 0);
+  const balance = Math.max(0, total - Number(inv.paidAmount || 0));
+  const renderedInvoice = { ...inv, lines, amount: total };
+  const renderedSettings = {
+    ...documentSettings.invoice,
+    theme: "professional",
+    showBalance: documentSettings.print.showBalance,
+    showDescription: documentSettings.print.showDescription,
+    showTime: documentSettings.print.showTime,
+  };
+
   return (
     <>
       <PageHeader
@@ -95,7 +130,7 @@ function InvoiceDetail() {
               onClick={() => {
                 const subject = encodeURIComponent(`Invoice ${inv.number}`);
                 const body = encodeURIComponent(
-                  `Hello,\n\nPlease find invoice ${inv.number} for ${formatINR(inv.amount)}.\n\nRegards`,
+                  `Hello,\n\nPlease find invoice ${inv.number} for ${formatINR(total)}.\n\nRegards`,
                 );
                 window.location.href = `mailto:?subject=${subject}&body=${body}`;
               }}
@@ -106,204 +141,54 @@ function InvoiceDetail() {
         }
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
-        <Card
-          className="print-document overflow-hidden p-8"
-          style={{ borderTop: `5px solid ${invoiceSettings.accent}` }}
-        >
-          <div className="flex items-start justify-between mb-8">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-primary">
-                Tax invoice
-              </div>
-              <div className="text-2xl font-semibold mt-1">{inv.number}</div>
-              <div className="mt-1">
-                <StatusBadge status={inv.status} />
-              </div>
-            </div>
-            <div className="text-right text-sm">
-              <div className="font-semibold">
-                {business.name || "Your Business"}
-              </div>
-              <div className="text-muted-foreground">
-                {business.address || "Update business address in settings"}
-              </div>
-              {invoiceSettings.showPhone && business.phone && (
-                <div className="text-muted-foreground">{business.phone}</div>
-              )}
-              {business.gstin && (
-                <div className="text-muted-foreground">
-                  GSTIN {business.gstin}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pb-6 border-b border-border">
-            <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                Billed to
-              </div>
-              <div className="font-semibold">{inv.customer}</div>
-              <div className="text-sm text-muted-foreground">
-                accounts@{inv.customer.toLowerCase().split(" ")[0]}.in
-              </div>
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                Issue date
-              </div>
-              <div className="font-medium">
-                {new Date(inv.date).toLocaleDateString("en-IN", {
-                  dateStyle: "medium",
-                })}
-                {invoiceSettings.showTime && (
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(inv.createdAt || inv.date).toLocaleTimeString(
-                      "en-IN",
-                      { hour: "2-digit", minute: "2-digit" },
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                Due date
-              </div>
-              <div className="font-medium">
-                {new Date(inv.dueDate).toLocaleDateString("en-IN", {
-                  dateStyle: "medium",
-                })}
-              </div>
-            </div>
-          </div>
-
-          <table className="w-full text-sm mt-6">
-            <thead>
-              <tr className="text-left text-xs uppercase text-muted-foreground">
-                <th className="py-2 font-medium">Item</th>
-                {invoiceSettings.showHsn && (
-                  <th className="py-2 font-medium">HSN</th>
-                )}
-                <th className="py-2 font-medium text-right">Qty</th>
-                <th className="py-2 font-medium text-right">Price</th>
-                {invoiceSettings.showDiscount && (
-                  <th className="py-2 font-medium text-right">Disc.</th>
-                )}
-                <th className="py-2 font-medium text-right">GST</th>
-                <th className="py-2 font-medium text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((l, i) => (
-                <tr key={i} className="border-t border-border">
-                  <td className="py-3 font-medium">
-                    {l.name}
-                    {invoiceSettings.showDescription && (
-                      <div className="text-xs font-normal text-muted-foreground">
-                        {l.description || "Product or service"}
-                      </div>
-                    )}
-                  </td>
-                  {invoiceSettings.showHsn && (
-                    <td className="py-3">{l.hsn || "-"}</td>
-                  )}
-                  <td className="py-3 text-right tabular-nums">{l.qty}</td>
-                  <td className="py-3 text-right tabular-nums">
-                    {formatINR(l.price)}
-                  </td>
-                  {invoiceSettings.showDiscount && (
-                    <td className="py-3 text-right tabular-nums">
-                      {l.discount || 0}%
-                    </td>
-                  )}
-                  <td className="py-3 text-right tabular-nums">{l.gst}%</td>
-                  <td className="py-3 text-right tabular-nums">
-                    {formatINR(
-                      (l.qty * l.price -
-                        (l.qty * l.price * Number(l.discount || 0)) / 100) *
-                        (1 + Number(l.gst || 0) / 100),
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="mt-6 flex justify-end">
-            <div className="w-full max-w-xs space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="tabular-nums">{formatINR(subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">GST</span>
-                <span className="tabular-nums">{formatINR(gst)}</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t border-border font-semibold text-base">
-                <span>Total</span>
-                <span className="tabular-nums">{formatINR(total)}</span>
-              </div>
-              {invoiceSettings.showBalance && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Balance due</span>
-                  <span className="tabular-nums">{formatINR(balance)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-10 pt-6 border-t border-border text-xs text-muted-foreground">
-            <div className="font-semibold text-foreground mb-1">Notes</div>
-            {invoiceSettings.terms}
-          </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
+        <Card className="print-document overflow-hidden p-0">
+          <InvoiceDocument
+            invoice={renderedInvoice}
+            customer={customer}
+            business={documentSettings.business}
+            settings={renderedSettings}
+            printSettings={documentSettings.print}
+            compact={documentSettings.print.mode === "thermal"}
+          />
         </Card>
 
-        <div className="space-y-4">
+        <div className="space-y-4 print-hidden">
           <Card className="p-5">
-            <h3 className="font-semibold mb-3">Payment status</h3>
+            <h3 className="mb-3 font-semibold">Payment status</h3>
             <div className="text-2xl font-semibold tabular-nums">
               {formatINR(balance)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Balance due</p>
+            <p className="mt-1 text-xs text-muted-foreground">Balance due</p>
             <div className="mt-4">
               <StatusBadge status={inv.status} />
             </div>
           </Card>
           <Card className="p-5">
-            <h3 className="font-semibold mb-3">Activity</h3>
-            <ul className="space-y-3 text-sm">
-              <li className="flex gap-3">
-                <div className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                <div>
-                  <div className="font-medium">Invoice created</div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(inv.date).toLocaleDateString("en-IN", {
-                      dateStyle: "medium",
-                    })}
-                  </div>
-                </div>
-              </li>
-              <li className="flex gap-3">
-                <div className="mt-1 h-2 w-2 rounded-full bg-info" />
-                <div>
-                  <div className="font-medium">Email sent</div>
-                  <div className="text-xs text-muted-foreground">
-                    Delivered to customer
-                  </div>
-                </div>
-              </li>
-              <li className="flex gap-3">
-                <div className="mt-1 h-2 w-2 rounded-full bg-warning" />
-                <div>
-                  <div className="font-medium">Reminder scheduled</div>
-                  <div className="text-xs text-muted-foreground">
-                    3 days before due
-                  </div>
-                </div>
-              </li>
-            </ul>
+            <h3 className="mb-3 font-semibold">Document settings</h3>
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Theme</dt>
+                <dd>Professional</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Logo</dt>
+                <dd>
+                  {documentSettings.business.logo ? "Added" : "Not added"}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Signature</dt>
+                <dd>
+                  {documentSettings.business.signature ? "Added" : "Not added"}
+                </dd>
+              </div>
+            </dl>
+            <Link to="/settings" className="mt-4 block">
+              <Button variant="outline" className="w-full">
+                Manage invoice settings
+              </Button>
+            </Link>
           </Card>
         </div>
       </div>

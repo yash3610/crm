@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   PageHeader,
   Card,
@@ -21,6 +21,7 @@ import {
   Mail,
 } from "lucide-react";
 import { toast } from "sonner";
+import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
 import { useApiList } from "@/hooks/useApiList";
 import { api } from "@/lib/api";
 import { printDocument } from "@/lib/printDocument";
@@ -35,6 +36,31 @@ function CreateInvoice() {
   const [number, setNumber] = useState(
     `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
   );
+  const [documentSettings, setDocumentSettings] = useState({
+    business: {},
+    invoice: {
+      theme: "professional",
+      accent: "#4f46e5",
+      showBalance: true,
+      showDescription: true,
+      showPhone: true,
+      showTime: false,
+      showHsn: true,
+      showDiscount: true,
+      showLogo: true,
+      showSignature: true,
+      showPaymentDetails: true,
+      terms: "Payment is due within 14 days.",
+    },
+    print: {
+      theme: "invoice",
+      showBalance: true,
+      showDescription: true,
+      showTime: false,
+      showTaxBreakup: true,
+      showSignature: true,
+    },
+  });
   const [rows, setRows] = useState([
     {
       id: crypto.randomUUID(),
@@ -62,6 +88,23 @@ function CreateInvoice() {
       },
     ]);
   };
+
+  useEffect(() => {
+    api
+      .get("/settings")
+      .then((settings) =>
+        setDocumentSettings((current) => ({
+          business: {
+            ...(settings.company || {}),
+            ...(settings.tax || {}),
+            ...(settings.business || {}),
+          },
+          invoice: { ...current.invoice, ...(settings.invoice || {}) },
+          print: { ...current.print, ...(settings.print || {}) },
+        })),
+      )
+      .catch((error) => toast.error(error.message));
+  }, []);
   const totals = useMemo(() => {
     let subtotal = 0,
       tax = 0,
@@ -78,6 +121,22 @@ function CreateInvoice() {
     return { subtotal, discount, tax, total: subtotal - discount + tax };
   }, [rows]);
   const cust = customers.find((c) => c.id === customer);
+  const documentLines = rows.map((row) => {
+    const product = products.find((item) => item.id === row.productId);
+    return {
+      ...row,
+      name: product?.name || "Product",
+      description: product?.category,
+      hsn: product?.hsn,
+    };
+  });
+  const renderedSettings = {
+    ...documentSettings.invoice,
+    theme: "professional",
+    showBalance: documentSettings.print.showBalance,
+    showDescription: documentSettings.print.showDescription,
+    showTime: documentSettings.print.showTime,
+  };
   const shareText = `Invoice ${number}\nCustomer: ${cust?.name || ""}\nTotal: ${formatINR(totals.total)}\nDue: ${dueDate}`;
   const openWhatsApp = () => {
     window.open(
@@ -388,98 +447,21 @@ function CreateInvoice() {
         </div>
       </div>
 
-      <section className="print-document hidden bg-white p-8 text-black">
-        <div className="mb-10 flex items-start justify-between">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider">
-              Tax invoice
-            </div>
-            <div className="mt-1 text-2xl font-semibold">{number}</div>
-          </div>
-          <div className="text-right text-sm">
-            <div className="font-semibold">BillPro</div>
-            <div>Business invoice</div>
-          </div>
-        </div>
-
-        <div className="mb-6 grid grid-cols-3 gap-6 border-b border-black/20 pb-6">
-          <div>
-            <div className="mb-1 text-xs uppercase text-black/60">
-              Billed to
-            </div>
-            <div className="font-semibold">{cust?.name}</div>
-            <div className="text-sm text-black/70">{cust?.email}</div>
-            <div className="text-sm text-black/70">{cust?.city}</div>
-          </div>
-          <div>
-            <div className="mb-1 text-xs uppercase text-black/60">
-              Invoice date
-            </div>
-            <div className="font-medium">
-              {new Date(date).toLocaleDateString("en-IN", {
-                dateStyle: "medium",
-              })}
-            </div>
-          </div>
-          <div>
-            <div className="mb-1 text-xs uppercase text-black/60">Due date</div>
-            <div className="font-medium">
-              {new Date(dueDate).toLocaleDateString("en-IN", {
-                dateStyle: "medium",
-              })}
-            </div>
-          </div>
-        </div>
-
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-black/30 text-left text-xs uppercase">
-              <th className="py-2">Item</th>
-              <th className="py-2 text-right">Qty</th>
-              <th className="py-2 text-right">Price</th>
-              <th className="py-2 text-right">GST</th>
-              <th className="py-2 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const product = products.find(
-                (item) => item.id === row.productId,
-              );
-              const base = row.qty * row.price;
-              const taxable = base - (base * row.discount) / 100;
-              const amount = taxable + (taxable * row.gst) / 100;
-              return (
-                <tr key={row.id} className="border-b border-black/15">
-                  <td className="py-3 font-medium">{product?.name}</td>
-                  <td className="py-3 text-right">{row.qty}</td>
-                  <td className="py-3 text-right">{formatINR(row.price)}</td>
-                  <td className="py-3 text-right">{row.gst}%</td>
-                  <td className="py-3 text-right">{formatINR(amount)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        <div className="mt-8 ml-auto w-72 space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal</span>
-            <span>{formatINR(totals.subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Discount</span>
-            <span>-{formatINR(totals.discount)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>GST</span>
-            <span>{formatINR(totals.tax)}</span>
-          </div>
-          <div className="flex justify-between border-t border-black/30 pt-3 text-base font-semibold">
-            <span>Total</span>
-            <span>{formatINR(totals.total)}</span>
-          </div>
-        </div>
+      <section className="print-document hidden">
+        <InvoiceDocument
+          invoice={{
+            number,
+            date,
+            dueDate,
+            amount: totals.total,
+            lines: documentLines,
+          }}
+          customer={cust}
+          business={documentSettings.business}
+          settings={renderedSettings}
+          printSettings={documentSettings.print}
+          compact={documentSettings.print.mode === "thermal"}
+        />
       </section>
     </>
   );
