@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 
 import { getJwtSecret, jwtOptions } from "../config/security.js";
@@ -7,10 +8,34 @@ import User from "../models/User.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { generateCode } from "../utils/generateCode.js";
+import { sendPasswordResetEmail } from "../utils/sendPasswordResetEmail.js";
+
+const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
+
+function validatePassword(password) {
+  if (
+    typeof password !== "string" ||
+    password.length < 8 ||
+    password.length > 128
+  ) {
+    throw new ApiError(400, "Password must be between 8 and 128 characters");
+  }
+  if (!PASSWORD_PATTERN.test(password)) {
+    throw new ApiError(
+      400,
+      "Password must include uppercase, lowercase and number characters",
+    );
+  }
+}
 
 function signToken(user) {
   return jwt.sign(
-    { id: user._id, tenantId: user.tenantId, role: user.role },
+    {
+      id: user._id,
+      tenantId: user.tenantId,
+      role: user.role,
+      authVersion: user.authVersion || 0,
+    },
     getJwtSecret(),
     {
       expiresIn: process.env.JWT_EXPIRES_IN || "8h",
@@ -51,9 +76,7 @@ export const register = asyncHandler(async (req, res) => {
   if (name.length > 100 || company.length > 120 || email.length > 254) {
     throw new ApiError(400, "One or more fields are too long");
   }
-  if (password.length < 8 || password.length > 128) {
-    throw new ApiError(400, "Password must be between 8 and 128 characters");
-  }
+  validatePassword(password);
   const normalizedEmail = email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
     throw new ApiError(400, "Enter a valid email address");
@@ -110,9 +133,9 @@ export const login = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Email and password are required");
   }
 
-  const user = await User.findOne({ email: email.trim().toLowerCase() }).select(
-    "+password",
-  );
+  const user = await User.findOne({
+    email: email.trim().toLowerCase(),
+  }).select("+password +authVersion");
   if (!user || !(await user.comparePassword(password))) {
     throw new ApiError(401, "Invalid email or password");
   }
@@ -142,13 +165,83 @@ export const me = asyncHandler(async (req, res) => {
 });
 
 export const forgotPassword = asyncHandler(async (req, res) => {
-  if (typeof req.body.email !== "string" || !req.body.email.trim()) {
-    throw new ApiError(400, "Email is required");
+  const email =
+    typeof req.body.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+  if (
+    !email ||
+    email.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    throw new ApiError(400, "Enter a valid email address");
+  }
+
+  let developmentResetUrl;
+  const user = await User.findOne({ email, status: "active" }).select(
+    "+passwordResetToken +passwordResetExpires",
+  );
+  if (user) {
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    user.passwordResetToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+    user.passwordResetExpires = new Date(Date.now() + 30 * 60 * 1000);
+    await user.save({ validateBeforeSave: false });
+
+    try {
+      const resetUrl = await sendPasswordResetEmail({
+        email: user.email,
+        resetToken,
+      });
+      if (process.env.NODE_ENV !== "production") {
+        developmentResetUrl = resetUrl;
+      }
+    } catch (error) {
+      user.passwordResetToken = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+      console.error("Failed to send password reset email:", error.message);
+    }
   }
 
   res.json({
     success: true,
     message:
       "If an account exists for this email, password reset instructions will be sent.",
+    ...(developmentResetUrl ? { data: { developmentResetUrl } } : {}),
+  });
+});
+
+export const resetPassword = asyncHandler(async (req, res) => {
+  const token = typeof req.params.token === "string" ? req.params.token : "";
+  const { password } = req.body;
+  validatePassword(password);
+
+  if (!/^[a-f0-9]{64}$/i.test(token)) {
+    throw new ApiError(400, "Password reset link is invalid or expired");
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const user = await User.findOne({
+    passwordResetToken: tokenHash,
+    passwordResetExpires: { $gt: new Date() },
+    status: "active",
+  }).select("+password +authVersion +passwordResetToken +passwordResetExpires");
+
+  if (!user) {
+    throw new ApiError(400, "Password reset link is invalid or expired");
+  }
+
+  user.password = password;
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  user.authVersion = (user.authVersion || 0) + 1;
+  await user.save();
+
+  res.json({
+    success: true,
+    message: "Password reset successfully",
   });
 });

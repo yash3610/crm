@@ -8,6 +8,9 @@ export function cleanJson(schema) {
       void doc;
       delete result._id;
       delete result.password;
+      delete result.authVersion;
+      delete result.passwordResetToken;
+      delete result.passwordResetExpires;
       return result;
     },
   });

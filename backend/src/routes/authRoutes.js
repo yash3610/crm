@@ -5,6 +5,7 @@ import {
   login,
   me,
   register,
+  resetPassword,
 } from "../controllers/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { createRateLimiter, noStore } from "../config/security.js";
@@ -20,6 +21,7 @@ router.use(noStore);
 router.post("/register", authRateLimit, register);
 router.post("/login", authRateLimit, login);
 router.post("/forgot-password", authRateLimit, forgotPassword);
+router.post("/reset-password/:token", authRateLimit, resetPassword);
 router.get("/me", protect, me);
 
 export default router;

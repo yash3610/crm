@@ -5,6 +5,46 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BillPro CRM</title>
+    <script>
+      try {
+        const isAuthPage =
+          ["/login", "/register", "/forgot-password"].includes(
+            window.location.pathname,
+          ) || window.location.pathname.startsWith("/reset-password/");
+        const savedTheme = localStorage.getItem("bp-theme");
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        document.documentElement.classList.toggle("auth-page", isAuthPage);
+        document.documentElement.classList.toggle(
+          "dark",
+          !isAuthPage && (savedTheme ? savedTheme === "dark" : prefersDark),
+        );
+      } catch {
+        // Use the light background when browser storage is unavailable.
+      }
+    </script>
+    <style>
+      html,
+      body,
+      #root {
+        min-height: 100%;
+        margin: 0;
+        background: #fafafa;
+      }
+
+      html.dark,
+      html.dark body,
+      html.dark #root {
+        background: #17191f;
+      }
+
+      html.auth-page,
+      html.auth-page body,
+      html.auth-page #root {
+        background: #fafafa;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

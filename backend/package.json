@@ -10,6 +10,7 @@
     "seed": "node src/seed/seed.js",
     "migrate:tenants": "node src/scripts/migrateToMultiTenant.js",
     "test:tenants": "node src/scripts/verifyTenantIsolation.js",
+    "test:auth": "node src/scripts/verifyAuthFlows.js",
     "test:business": "node src/scripts/verifyBusinessFlows.js",
     "test:uploads": "node src/scripts/verifyUploads.js",
     "check": "node --check src/server.js"

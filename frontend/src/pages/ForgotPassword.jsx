@@ -1,14 +1,16 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { AuthLayout } from "@/components/auth/AuthLayout";
+import { AuthPanel } from "@/components/auth/AuthLayout";
 import { Button, Input } from "@/components/common/Primitives";
 import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 function ForgotPage() {
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [developmentResetUrl, setDevelopmentResetUrl] = useState("");
   return (
-    <AuthLayout
+    <AuthPanel
       title="Reset your password"
       subtitle="We'll email you a secure link to set a new password."
       footer={
@@ -32,6 +34,14 @@ function ForgotPage() {
           <p className="text-sm text-muted-foreground mt-1">
             We sent a reset link. It expires in 30 minutes.
           </p>
+          {developmentResetUrl && (
+            <a
+              href={developmentResetUrl}
+              className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+            >
+              Open development reset link
+            </a>
+          )}
         </div>
       ) : (
         <form
@@ -39,10 +49,14 @@ function ForgotPage() {
             e.preventDefault();
             const email = new FormData(e.currentTarget).get("email");
             try {
-              await api.post("/auth/forgot-password", { email });
+              setLoading(true);
+              const result = await api.post("/auth/forgot-password", { email });
+              setDevelopmentResetUrl(result?.developmentResetUrl || "");
               setSent(true);
             } catch (error) {
               toast.error(error.message);
+            } finally {
+              setLoading(false);
             }
           }}
           className="space-y-4"
@@ -56,15 +70,15 @@ function ForgotPage() {
               type="email"
               required
               className="mt-1.5"
-              defaultValue="admin@billpro.io"
+              autoComplete="email"
             />
           </label>
-          <Button type="submit" className="w-full">
-            Send reset link
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Sending..." : "Send reset link"}
           </Button>
         </form>
       )}
-    </AuthLayout>
+    </AuthPanel>
   );
 }
 

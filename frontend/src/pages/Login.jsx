@@ -1,6 +1,6 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { AuthLayout } from "@/components/auth/AuthLayout";
+import { AuthPanel } from "@/components/auth/AuthLayout";
 import { Button, Input } from "@/components/common/Primitives";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -8,19 +8,21 @@ import { useAuth } from "@/context/AuthContext";
 
 function LoginPage() {
   const nav = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [show, setShow] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    email: "admin@billpro.io",
-    password: "demo1234",
+    email: "",
+    password: "",
   });
   const socialProviders = [
     { name: "Google", url: import.meta.env.VITE_GOOGLE_AUTH_URL },
     { name: "Microsoft", url: import.meta.env.VITE_MICROSOFT_AUTH_URL },
   ];
   return (
-    <AuthLayout
+    <AuthPanel
       title="Welcome back"
       subtitle="Sign in to your BillPro workspace."
       footer={
@@ -40,9 +42,13 @@ function LoginPage() {
           e.preventDefault();
           try {
             setLoading(true);
-            await login(form);
+            await login(form, remember);
             toast.success("Signed in");
-            nav("/");
+            const destination =
+              typeof location.state?.from === "string"
+                ? location.state.from
+                : "/";
+            nav(destination, { replace: true });
           } catch (error) {
             toast.error(error.message);
           } finally {
@@ -59,6 +65,7 @@ function LoginPage() {
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="email"
+              autoComplete="email"
               required
               value={form.email}
               onChange={(event) =>
@@ -84,6 +91,7 @@ function LoginPage() {
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type={show ? "text" : "password"}
+              autoComplete="current-password"
               required
               value={form.password}
               onChange={(event) =>
@@ -107,7 +115,8 @@ function LoginPage() {
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
-            defaultChecked
+            checked={remember}
+            onChange={(event) => setRemember(event.target.checked)}
             className="h-4 w-4 rounded border-border text-primary"
           />{" "}
           Remember me
@@ -146,7 +155,7 @@ function LoginPage() {
           ))}
         </div>
       </form>
-    </AuthLayout>
+    </AuthPanel>
   );
 }
 

@@ -20,13 +20,14 @@ export const protect = asyncHandler(async (req, res, next) => {
   } catch {
     throw new ApiError(401, "Invalid or expired token");
   }
-  const user = await User.findById(decoded.id).select("-password");
+  const user = await User.findById(decoded.id).select("+authVersion");
 
   if (
     !user ||
     user.status !== "active" ||
     !decoded.tenantId ||
-    user.tenantId.toString() !== decoded.tenantId
+    user.tenantId.toString() !== decoded.tenantId ||
+    (user.authVersion || 0) !== (decoded.authVersion || 0)
   ) {
     throw new ApiError(401, "User is not available");
   }

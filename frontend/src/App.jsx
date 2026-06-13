@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { VideoAuthLayout } from "@/components/auth/AuthLayout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Accounting from "@/pages/Accounting";
 import Customers from "@/pages/Customers";
@@ -23,6 +24,7 @@ import Purchases from "@/pages/Purchases";
 import Quotations from "@/pages/Quotations";
 import QuotationDetails from "@/pages/QuotationDetails";
 import Register from "@/pages/Register";
+import ResetPassword from "@/pages/ResetPassword";
 import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
 import Suppliers from "@/pages/Suppliers";
@@ -41,9 +43,12 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route element={<VideoAuthLayout />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+        </Route>
 
         <Route element={<ProtectedRoute />}>
           <Route path="settings" element={<Settings />} />

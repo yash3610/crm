@@ -1,10 +1,17 @@
 import { ApiError } from "../utils/ApiError.js";
 
 const DEFAULT_SECRET = "change-this-secret-in-production";
+const LOCAL_DEVELOPMENT_SECRET = "billpro-local-development-secret";
 
 export function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret === DEFAULT_SECRET || secret.length < 32) {
+  if (
+    !secret ||
+    secret === DEFAULT_SECRET ||
+    secret.length < 32 ||
+    (process.env.NODE_ENV === "production" &&
+      secret === LOCAL_DEVELOPMENT_SECRET)
+  ) {
     throw new Error(
       "JWT_SECRET must be a unique value of at least 32 characters",
     );

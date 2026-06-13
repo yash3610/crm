@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { AuthLayout } from "@/components/auth/AuthLayout";
+import { AuthPanel } from "@/components/auth/AuthLayout";
 import { Button, Input } from "@/components/common/Primitives";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -17,7 +17,7 @@ function RegisterPage() {
     password: "",
   });
   return (
-    <AuthLayout
+    <AuthPanel
       title="Create your workspace"
       subtitle="Free 14-day trial. No credit card required."
       footer={
@@ -60,6 +60,7 @@ function RegisterPage() {
             </span>
             <Input
               required
+              autoComplete="given-name"
               className="mt-1.5"
               value={form.firstName}
               onChange={(event) =>
@@ -73,6 +74,7 @@ function RegisterPage() {
             </span>
             <Input
               required
+              autoComplete="family-name"
               className="mt-1.5"
               value={form.lastName}
               onChange={(event) =>
@@ -87,6 +89,7 @@ function RegisterPage() {
           </span>
           <Input
             required
+            autoComplete="organization"
             className="mt-1.5"
             value={form.company}
             onChange={(event) =>
@@ -101,6 +104,7 @@ function RegisterPage() {
           <Input
             type="email"
             required
+            autoComplete="email"
             className="mt-1.5"
             value={form.email}
             onChange={(event) =>
@@ -116,6 +120,10 @@ function RegisterPage() {
             type="password"
             required
             minLength={8}
+            maxLength={128}
+            pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}"
+            title="Use 8-128 characters with uppercase, lowercase and a number"
+            autoComplete="new-password"
             className="mt-1.5"
             value={form.password}
             onChange={(event) =>
@@ -140,7 +148,7 @@ function RegisterPage() {
           {loading ? "Creating workspace…" : "Create workspace"}
         </Button>
       </form>
-    </AuthLayout>
+    </AuthPanel>
   );
 }
 

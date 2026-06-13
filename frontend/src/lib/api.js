@@ -2,7 +2,10 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const API_ORIGIN = new URL(API_URL, window.location.origin).origin;
 
 function getToken() {
-  return localStorage.getItem("billpro_token");
+  return (
+    sessionStorage.getItem("billpro_token") ||
+    localStorage.getItem("billpro_token")
+  );
 }
 
 export async function apiRequest(path, options = {}) {
