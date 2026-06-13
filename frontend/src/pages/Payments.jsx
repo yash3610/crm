@@ -3,6 +3,7 @@ import { Banknote, IndianRupee, Plus, ReceiptText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTable } from "@/components/common/DataTable";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import {
   Button,
   Card,
@@ -34,6 +35,7 @@ function Payments() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState("");
+  const [paymentToDelete, setPaymentToDelete] = useState(null);
   const [form, setForm] = useState(emptyForm);
 
   const paidByInvoice = useMemo(
@@ -136,20 +138,14 @@ function Payments() {
     }
   };
 
-  const deletePayment = async (payment) => {
-    if (
-      !window.confirm(
-        `Delete payment of ${formatINR(payment.amount)} for ${payment.invoiceNumber || payment.invoice}?`,
-      )
-    ) {
-      return;
-    }
-
+  const deletePayment = async () => {
+    if (!paymentToDelete) return;
     try {
-      setDeleting(payment.id);
-      await remove(payment.id);
+      setDeleting(paymentToDelete.id);
+      await remove(paymentToDelete.id);
       await reloadInvoices();
       toast.success("Payment deleted and balances updated");
+      setPaymentToDelete(null);
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -210,7 +206,7 @@ function Payments() {
                 size="sm"
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                 disabled={deleting === row.id}
-                onClick={() => deletePayment(row)}
+                onClick={() => setPaymentToDelete(row)}
                 aria-label="Delete payment"
               >
                 <Trash2 className="h-4 w-4" />
@@ -395,6 +391,22 @@ function Payments() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={Boolean(paymentToDelete)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !deleting) setPaymentToDelete(null);
+        }}
+        title="Delete this payment?"
+        description={
+          paymentToDelete
+            ? `${formatINR(paymentToDelete.amount)} for ${paymentToDelete.invoiceNumber || paymentToDelete.invoice} will be deleted. Invoice and customer balances will update automatically.`
+            : ""
+        }
+        confirmLabel="Yes, delete payment"
+        loading={Boolean(deleting)}
+        onConfirm={deletePayment}
+      />
     </>
   );
 }

@@ -9,6 +9,7 @@ import {
   PageHeader,
   StatusBadge,
 } from "@/components/common/Primitives";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
 import { useAuth } from "@/context/AuthContext";
 import { formatINR, invoices } from "@/data/mock";
@@ -59,6 +60,7 @@ function InvoiceDetail() {
   const [customer, setCustomer] = useState({});
   const [payments, setPayments] = useState([]);
   const [deletingPayment, setDeletingPayment] = useState("");
+  const [paymentToDelete, setPaymentToDelete] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -98,18 +100,11 @@ function InvoiceDetail() {
       .catch((error) => toast.error(error.message));
   }, [id]);
 
-  const deletePayment = async (payment) => {
-    if (
-      !window.confirm(
-        `Delete payment of ${formatINR(payment.amount)}? Invoice balance and customer outstanding will be updated.`,
-      )
-    ) {
-      return;
-    }
-
+  const deletePayment = async () => {
+    if (!paymentToDelete) return;
     try {
-      setDeletingPayment(payment.id);
-      await api.delete(`/payments/${payment.id}`);
+      setDeletingPayment(paymentToDelete.id);
+      await api.delete(`/payments/${paymentToDelete.id}`);
       const [invoice, paymentRows] = await Promise.all([
         api.get(`/invoices/${id}`),
         api.get("/payments"),
@@ -121,6 +116,7 @@ function InvoiceDetail() {
         ),
       );
       toast.success("Payment deleted and invoice balance updated");
+      setPaymentToDelete(null);
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -274,7 +270,7 @@ function InvoiceDetail() {
                           size="sm"
                           className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                           disabled={deletingPayment === payment.id}
-                          onClick={() => deletePayment(payment)}
+                          onClick={() => setPaymentToDelete(payment)}
                           aria-label="Delete payment"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -292,6 +288,22 @@ function InvoiceDetail() {
           </Card>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(paymentToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deletingPayment) setPaymentToDelete(null);
+        }}
+        title="Delete this payment?"
+        description={
+          paymentToDelete
+            ? `${formatINR(paymentToDelete.amount)} will be removed. The invoice balance, payment status and customer outstanding will be recalculated.`
+            : ""
+        }
+        confirmLabel="Yes, delete payment"
+        loading={Boolean(deletingPayment)}
+        onConfirm={deletePayment}
+      />
     </>
   );
 }
