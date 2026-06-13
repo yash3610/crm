@@ -27,7 +27,17 @@ const emptyForm = {
 
 function Payments() {
   const { user } = useAuth();
-  const { rows, create, remove } = useApiList("/payments", payments);
+  const {
+    rows,
+    allRows,
+    loading,
+    create,
+    remove,
+    pagination,
+    setPage,
+    setPageSize,
+    setSearch,
+  } = useApiList("/payments", payments, { paginated: true });
   const { rows: invoices, reload: reloadInvoices } = useApiList(
     "/invoices",
     invoiceSeed,
@@ -40,12 +50,12 @@ function Payments() {
 
   const paidByInvoice = useMemo(
     () =>
-      rows.reduce((totals, payment) => {
+      allRows.reduce((totals, payment) => {
         const number = payment.invoiceNumber || payment.invoice;
         totals[number] = (totals[number] || 0) + Number(payment.amount || 0);
         return totals;
       }, {}),
-    [rows],
+    [allRows],
   );
 
   const payableInvoices = useMemo(
@@ -70,7 +80,7 @@ function Payments() {
     ? Math.max(0, Number(selectedInvoice.amount) - alreadyPaid)
     : 0;
   const canRecord = ["Owner", "Admin", "Accountant"].includes(user?.role);
-  const totalReceived = rows.reduce(
+  const totalReceived = allRows.reduce(
     (total, payment) => total + Number(payment.amount || 0),
     0,
   );
@@ -256,7 +266,7 @@ function Payments() {
               <div className="text-xs text-muted-foreground">
                 Payment entries
               </div>
-              <div className="text-xl font-semibold">{rows.length}</div>
+              <div className="text-xl font-semibold">{pagination.total}</div>
             </div>
           </div>
         </Card>
@@ -281,6 +291,11 @@ function Payments() {
         rows={rows}
         columns={columns}
         searchKeys={["invoice", "invoiceNumber", "customer", "reference"]}
+        pagination={pagination}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        loading={loading}
       />
 
       <Modal

@@ -50,7 +50,17 @@ const seed = [
 
 function PurchasesPage() {
   const navigate = useNavigate();
-  const { rows, setRows } = useApiList("/purchases", seed);
+  const {
+    rows,
+    allRows,
+    setRows,
+    setAllRows,
+    loading,
+    pagination,
+    setPage,
+    setPageSize,
+    setSearch,
+  } = useApiList("/purchases", seed, { paginated: true });
   const [selectedBill, setSelectedBill] = useState(null);
   const [saving, setSaving] = useState(false);
   const [payment, setPayment] = useState({
@@ -100,6 +110,9 @@ function PurchasesPage() {
         id: updated.purchaseId,
       };
       setRows((current) =>
+        current.map((row) => (row.id === selectedBill.id ? normalized : row)),
+      );
+      setAllRows((current) =>
         current.map((row) => (row.id === selectedBill.id ? normalized : row)),
       );
       toast.success(`Payment recorded for ${selectedBill.number}`);
@@ -192,14 +205,14 @@ function PurchasesPage() {
       ),
     },
   ];
-  const pending = rows
+  const pending = allRows
     .filter((row) => !["paid", "cancelled"].includes(row.status))
     .reduce(
       (sum, row) =>
         sum + Math.max(0, Number(row.amount) - Number(row.paidAmount || 0)),
       0,
     );
-  const thisMonth = rows
+  const thisMonth = allRows
     .filter((row) => {
       const value = new Date(row.date);
       const now = new Date();
@@ -219,7 +232,7 @@ function PurchasesPage() {
           <>
             <Button
               variant="outline"
-              onClick={() => downloadCsv("purchase-bills.csv", rows)}
+              onClick={() => downloadCsv("purchase-bills.csv", allRows)}
             >
               <Download className="h-4 w-4" /> Export
             </Button>
@@ -233,7 +246,7 @@ function PurchasesPage() {
         <StatCard
           label="Total purchases"
           value={formatINR(
-            rows.reduce((sum, row) => sum + Number(row.amount || 0), 0),
+            allRows.reduce((sum, row) => sum + Number(row.amount || 0), 0),
           )}
           icon={<ShoppingBag className="h-5 w-5" />}
           tone="primary"
@@ -255,6 +268,11 @@ function PurchasesPage() {
         rows={rows}
         columns={columns}
         searchKeys={["number", "supplierBillNumber", "supplier"]}
+        pagination={pagination}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        loading={loading}
       />
       <Modal
         open={Boolean(selectedBill)}

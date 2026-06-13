@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 export function DataTable({
@@ -7,10 +7,24 @@ export function DataTable({
   searchKeys,
   pageSize = 8,
   toolbar,
+  pagination,
+  onPageChange,
+  onPageSizeChange,
+  onSearchChange,
+  loading = false,
 }) {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
+  const serverSide = Boolean(pagination && onPageChange);
+
+  useEffect(() => {
+    if (!serverSide || !onSearchChange) return;
+    const timer = window.setTimeout(() => onSearchChange(q), 350);
+    return () => window.clearTimeout(timer);
+  }, [onSearchChange, q, serverSide]);
+
   const filtered = useMemo(() => {
+    if (serverSide) return rows;
     if (!q || !searchKeys?.length) return rows;
     const needle = q.toLowerCase();
     return rows.filter((r) =>
@@ -20,10 +34,21 @@ export function DataTable({
           .includes(needle),
       ),
     );
-  }, [rows, q, searchKeys]);
-  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const safePage = Math.min(page, pages);
-  const slice = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  }, [rows, q, searchKeys, serverSide]);
+  const effectivePageSize = serverSide ? pagination.limit : pageSize;
+  const pages = serverSide
+    ? pagination.pages
+    : Math.max(1, Math.ceil(filtered.length / effectivePageSize));
+  const safePage = serverSide ? pagination.page : Math.min(page, pages);
+  const slice = serverSide
+    ? filtered
+    : filtered.slice(
+        (safePage - 1) * effectivePageSize,
+        safePage * effectivePageSize,
+      );
+  const total = serverSide ? pagination.total : filtered.length;
+  const start = total ? (safePage - 1) * effectivePageSize + 1 : 0;
+  const end = total ? Math.min(start + slice.length - 1, total) : 0;
   return (
     <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between p-4 border-b border-border">
@@ -36,7 +61,7 @@ export function DataTable({
                 setQ(e.target.value);
                 setPage(1);
               }}
-              placeholder="Search…"
+              placeholder="Search..."
               className="w-full h-9 pl-9 pr-3 rounded-lg bg-muted/60 border border-transparent focus:bg-background focus:border-border outline-none text-sm"
             />
           </div>
@@ -60,22 +85,33 @@ export function DataTable({
             </tr>
           </thead>
           <tbody>
-            {slice.map((row) => (
-              <tr
-                key={row.id}
-                className="border-t border-border hover:bg-muted/30 transition-colors"
-              >
-                {columns.map((c) => (
-                  <td
-                    key={c.key}
-                    className={cn("px-4 py-3 align-middle", c.className)}
-                  >
-                    {c.render(row)}
-                  </td>
-                ))}
+            {!loading &&
+              slice.map((row) => (
+                <tr
+                  key={row.id}
+                  className="border-t border-border hover:bg-muted/30 transition-colors"
+                >
+                  {columns.map((c) => (
+                    <td
+                      key={c.key}
+                      className={cn("px-4 py-3 align-middle", c.className)}
+                    >
+                      {c.render(row)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            {loading && (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="px-4 py-12 text-center text-sm text-muted-foreground"
+                >
+                  Loading...
+                </td>
               </tr>
-            ))}
-            {slice.length === 0 && (
+            )}
+            {!loading && slice.length === 0 && (
               <tr>
                 <td
                   colSpan={columns.length}
@@ -90,13 +126,32 @@ export function DataTable({
       </div>
       <div className="flex items-center justify-between px-4 py-3 border-t border-border text-xs text-muted-foreground">
         <div>
-          Showing{" "}
-          <span className="font-medium text-foreground">{slice.length}</span> of{" "}
-          <span className="font-medium text-foreground">{filtered.length}</span>
+          Showing <span className="font-medium text-foreground">{start}</span>
+          {" - "}
+          <span className="font-medium text-foreground">{end}</span> of{" "}
+          <span className="font-medium text-foreground">{total}</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {serverSide && onPageSizeChange && (
+            <select
+              value={effectivePageSize}
+              onChange={(event) => onPageSizeChange(Number(event.target.value))}
+              className="h-8 rounded-md border border-border bg-background px-2"
+              aria-label="Rows per page"
+            >
+              {[8, 10, 20, 50].map((size) => (
+                <option key={size} value={size}>
+                  {size} / page
+                </option>
+              ))}
+            </select>
+          )}
           <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() =>
+              serverSide
+                ? onPageChange(Math.max(1, safePage - 1))
+                : setPage((current) => Math.max(1, current - 1))
+            }
             disabled={safePage === 1}
             className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-border hover:bg-accent disabled:opacity-40"
           >
@@ -106,7 +161,11 @@ export function DataTable({
             Page {safePage} / {pages}
           </span>
           <button
-            onClick={() => setPage((p) => Math.min(pages, p + 1))}
+            onClick={() =>
+              serverSide
+                ? onPageChange(Math.min(pages, safePage + 1))
+                : setPage((current) => Math.min(pages, current + 1))
+            }
             disabled={safePage === pages}
             className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-border hover:bg-accent disabled:opacity-40"
           >

@@ -50,6 +50,15 @@ export function createCrudController({
 }) {
   const list = asyncHandler(async (req, res) => {
     const query = { tenantId: req.tenantId };
+    const requestedPage = Number.parseInt(req.query.page, 10);
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const paginated =
+      Number.isInteger(requestedPage) || Number.isInteger(requestedLimit);
+    const page = Math.max(1, Number.isInteger(requestedPage) ? requestedPage : 1);
+    const limit = Math.min(
+      100,
+      Math.max(1, Number.isInteger(requestedLimit) ? requestedLimit : 10),
+    );
     const search =
       typeof req.query.search === "string" ? req.query.search.trim() : "";
 
@@ -60,6 +69,12 @@ export function createCrudController({
     }
 
     if (typeof req.query.status === "string") query.status = req.query.status;
+    const days = Number.parseInt(req.query.days, 10);
+    if (Number.isInteger(days) && days > 0 && days <= 3650) {
+      const start = new Date();
+      start.setDate(start.getDate() - days);
+      query.date = { $gte: start };
+    }
 
     const requestedSort =
       typeof req.query.sort === "string" ? req.query.sort : "";
@@ -73,10 +88,34 @@ export function createCrudController({
       idField,
     ]);
     const sort = allowedSortFields.has(sortField) ? requestedSort : defaultSort;
-    const items = await Model.find(query).sort(sort).limit(500);
+    if (!paginated) {
+      const items = await Model.find(query).sort(sort).limit(500);
+      return res.json({
+        success: true,
+        data: items.map((item) => normalize(item, idField, transform)),
+      });
+    }
+
+    const total = await Model.countDocuments(query);
+    const pages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(page, pages);
+    const items = await Model.find(query)
+      .sort(sort)
+      .skip((safePage - 1) * limit)
+      .limit(limit);
     res.json({
       success: true,
-      data: items.map((item) => normalize(item, idField, transform)),
+      data: {
+        items: items.map((item) => normalize(item, idField, transform)),
+        pagination: {
+          page: safePage,
+          limit,
+          total,
+          pages,
+          hasPrevious: safePage > 1,
+          hasNext: safePage < pages,
+        },
+      },
     });
   });
 

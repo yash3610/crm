@@ -33,7 +33,16 @@ function quotationBadge(status) {
 
 function QuotationsPage() {
   const navigate = useNavigate();
-  const { rows } = useApiList("/quotations", seed);
+  const {
+    rows,
+    allRows,
+    loading,
+    pagination,
+    setPage,
+    setPageSize,
+    setSearch,
+    setFilters,
+  } = useApiList("/quotations", seed, { paginated: true });
   const columns = [
     {
       key: "number",
@@ -111,7 +120,7 @@ function QuotationsPage() {
           <>
             <Button
               variant="outline"
-              onClick={() => downloadCsv("quotations.csv", rows)}
+              onClick={() => downloadCsv("quotations.csv", allRows)}
             >
               <Download className="h-4 w-4" /> Export
             </Button>
@@ -125,8 +134,16 @@ function QuotationsPage() {
         rows={rows}
         columns={columns}
         searchKeys={["number", "customer"]}
+        pagination={pagination}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        loading={loading}
         toolbar={
-          <Select defaultValue="all">
+          <Select
+            defaultValue="all"
+            onChange={(event) => setFilters({ status: event.target.value })}
+          >
             <option value="all">All statuses</option>
             <option value="draft">Draft</option>
             <option value="sent">Sent</option>

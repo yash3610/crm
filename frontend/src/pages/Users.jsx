@@ -85,7 +85,18 @@ function formatLastSeen(value) {
 
 function UsersPage() {
   const { user } = useAuth();
-  const { rows, loading, create, update, remove } = useApiList("/users", []);
+  const {
+    rows,
+    allRows,
+    loading,
+    create,
+    update,
+    remove,
+    pagination,
+    setPage,
+    setPageSize,
+    setSearch,
+  } = useApiList("/users", [], { paginated: true });
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -347,7 +358,7 @@ function UsersPage() {
                 <span className="text-sm font-semibold">{role.name}</span>
               </div>
               <Badge tone={role.tone}>
-                {rows.filter((member) => member.role === role.name).length}
+                {allRows.filter((member) => member.role === role.name).length}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">{role.description}</p>
@@ -450,6 +461,11 @@ function UsersPage() {
         rows={rows}
         columns={columns}
         searchKeys={["name", "email", "role", "status"]}
+        pagination={pagination}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        loading={loading}
         toolbar={
           loading ? (
             <span className="text-xs text-muted-foreground">
@@ -457,7 +473,7 @@ function UsersPage() {
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">
-              {rows.filter((member) => member.status === "active").length}{" "}
+              {allRows.filter((member) => member.status === "active").length}{" "}
               active
             </span>
           )

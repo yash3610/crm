@@ -12,7 +12,8 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useApiList } from "@/hooks/useApiList";
 function SuppliersPage() {
-  const { rows, create } = useApiList("/suppliers", seed);
+  const { rows, loading, create, pagination, setPage, setPageSize, setSearch } =
+    useApiList("/suppliers", seed, { paginated: true });
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({
     name: "",
@@ -78,6 +79,11 @@ function SuppliersPage() {
         rows={rows}
         columns={cols}
         searchKeys={["name", "city", "contact"]}
+        pagination={pagination}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        loading={loading}
       />
       <Modal
         open={open}

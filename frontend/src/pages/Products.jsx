@@ -15,7 +15,16 @@ import { toast } from "sonner";
 import { useApiList } from "@/hooks/useApiList";
 import { downloadCsv } from "@/lib/downloadCsv";
 function ProductsPage() {
-  const { rows, create } = useApiList("/products", seed);
+  const {
+    rows,
+    allRows,
+    loading,
+    create,
+    pagination,
+    setPage,
+    setPageSize,
+    setSearch,
+  } = useApiList("/products", seed, { paginated: true });
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({
     name: "",
@@ -119,7 +128,7 @@ function ProductsPage() {
           <>
             <Button
               variant="outline"
-              onClick={() => downloadCsv("products.csv", rows)}
+              onClick={() => downloadCsv("products.csv", allRows)}
             >
               <Download className="h-4 w-4" /> Export
             </Button>
@@ -133,6 +142,11 @@ function ProductsPage() {
         rows={rows}
         columns={cols}
         searchKeys={["name", "sku", "category"]}
+        pagination={pagination}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        loading={loading}
       />
       <Modal
         open={open}

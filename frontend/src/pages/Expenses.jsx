@@ -13,7 +13,8 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useApiList } from "@/hooks/useApiList";
 function ExpensesPage() {
-  const { rows, create } = useApiList("/expenses", seed);
+  const { rows, loading, create, pagination, setPage, setPageSize, setSearch } =
+    useApiList("/expenses", seed, { paginated: true });
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({
     category: "Rent",
@@ -79,6 +80,11 @@ function ExpensesPage() {
         rows={rows}
         columns={cols}
         searchKeys={["category", "vendor"]}
+        pagination={pagination}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        loading={loading}
       />
       <Modal
         open={open}

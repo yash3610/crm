@@ -12,7 +12,16 @@ import { useApiList } from "@/hooks/useApiList";
 import { downloadCsv } from "@/lib/downloadCsv";
 function InvoicesPage() {
   const navigate = useNavigate();
-  const { rows: invoiceRows } = useApiList("/invoices", invoices);
+  const {
+    rows: invoiceRows,
+    allRows,
+    loading,
+    pagination,
+    setPage,
+    setPageSize,
+    setSearch,
+    setFilters,
+  } = useApiList("/invoices", invoices, { paginated: true });
   const cols = [
     {
       key: "number",
@@ -79,7 +88,7 @@ function InvoicesPage() {
           <>
             <Button
               variant="outline"
-              onClick={() => downloadCsv("invoices.csv", invoiceRows)}
+              onClick={() => downloadCsv("invoices.csv", allRows)}
             >
               <Download className="h-4 w-4" /> Export
             </Button>
@@ -95,16 +104,28 @@ function InvoicesPage() {
         rows={invoiceRows}
         columns={cols}
         searchKeys={["number", "customer"]}
+        pagination={pagination}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        onSearchChange={setSearch}
+        loading={loading}
         toolbar={
           <>
-            <Select defaultValue="all">
+            <Select
+              defaultValue="all"
+              onChange={(event) => setFilters({ status: event.target.value })}
+            >
               <option value="all">All statuses</option>
               <option value="paid">Paid</option>
               <option value="pending">Pending</option>
               <option value="overdue">Overdue</option>
               <option value="draft">Draft</option>
             </Select>
-            <Select defaultValue="30">
+            <Select
+              defaultValue="all"
+              onChange={(event) => setFilters({ days: event.target.value })}
+            >
+              <option value="all">All dates</option>
               <option value="7">Last 7 days</option>
               <option value="30">Last 30 days</option>
               <option value="90">Last 90 days</option>
