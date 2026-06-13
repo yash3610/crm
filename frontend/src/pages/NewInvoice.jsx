@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   PageHeader,
   Card,
@@ -6,11 +7,7 @@ import {
   Input,
   Select,
 } from "@/components/common/Primitives";
-import {
-  customers as customerSeed,
-  products as productSeed,
-  formatINR,
-} from "@/data/mock";
+import { formatINR } from "@/data/mock";
 import {
   Plus,
   Trash2,
@@ -26,9 +23,11 @@ import { useApiList } from "@/hooks/useApiList";
 import { api } from "@/lib/api";
 import { printDocument } from "@/lib/printDocument";
 function CreateInvoice() {
-  const { rows: customers } = useApiList("/customers", customerSeed);
-  const { rows: products } = useApiList("/products", productSeed);
-  const [customer, setCustomer] = useState(customerSeed[0].id);
+  const navigate = useNavigate();
+  const { rows: customers, loading: customersLoading } =
+    useApiList("/customers");
+  const { rows: products, loading: productsLoading } = useApiList("/products");
+  const [customer, setCustomer] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState(
     new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
@@ -61,21 +60,16 @@ function CreateInvoice() {
       showSignature: true,
     },
   });
-  const [rows, setRows] = useState([
-    {
-      id: crypto.randomUUID(),
-      productId: productSeed[0].id,
-      qty: 1,
-      price: productSeed[0].price,
-      gst: productSeed[0].gst,
-      discount: 0,
-    },
-  ]);
+  const [rows, setRows] = useState([]);
   const update = (id, patch) =>
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const remove = (id) => setRows((rs) => rs.filter((r) => r.id !== id));
   const addRow = () => {
     const p = products[0];
+    if (!p) {
+      toast.error("Add a product before creating an invoice");
+      return;
+    }
     setRows((rs) => [
       ...rs,
       {
@@ -88,6 +82,49 @@ function CreateInvoice() {
       },
     ]);
   };
+
+  useEffect(() => {
+    setCustomer((current) => {
+      if (customers.some((item) => item.id === current)) return current;
+      return customers[0]?.id || "";
+    });
+  }, [customers]);
+
+  useEffect(() => {
+    if (!products.length) {
+      setRows([]);
+      return;
+    }
+
+    setRows((current) => {
+      if (!current.length) {
+        const product = products[0];
+        return [
+          {
+            id: crypto.randomUUID(),
+            productId: product.id,
+            qty: 1,
+            price: product.price,
+            gst: product.gst,
+            discount: 0,
+          },
+        ];
+      }
+
+      return current.map((row) => {
+        if (products.some((product) => product.id === row.productId)) {
+          return row;
+        }
+        const product = products[0];
+        return {
+          ...row,
+          productId: product.id,
+          price: product.price,
+          gst: product.gst,
+        };
+      });
+    });
+  }, [products]);
 
   useEffect(() => {
     api
@@ -121,6 +158,20 @@ function CreateInvoice() {
     return { subtotal, discount, tax, total: subtotal - discount + tax };
   }, [rows]);
   const cust = customers.find((c) => c.id === customer);
+  const canUseInvoice = Boolean(cust && rows.length && products.length);
+  const businessName =
+    documentSettings.business.displayName ||
+    documentSettings.business.name ||
+    "Your Business";
+  const businessAddress =
+    [
+      documentSettings.business.address,
+      documentSettings.business.city,
+      documentSettings.business.state,
+      documentSettings.business.pincode,
+    ]
+      .filter(Boolean)
+      .join(", ") || "Business address";
   const documentLines = rows.map((row) => {
     const product = products.find((item) => item.id === row.productId);
     return {
@@ -153,6 +204,15 @@ function CreateInvoice() {
     window.location.href = `mailto:${cust?.email || ""}?subject=${subject}&body=${body}`;
   };
   const saveInvoice = async () => {
+    if (!cust) {
+      toast.error("Select a customer before saving the invoice");
+      return;
+    }
+    if (!rows.length) {
+      toast.error("Add at least one invoice item");
+      return;
+    }
+
     try {
       await api.post("/invoices", {
         number,
@@ -191,22 +251,35 @@ function CreateInvoice() {
             <Button
               variant="outline"
               onClick={() => printDocument(`${number}-invoice`)}
+              disabled={!canUseInvoice}
             >
               <Printer className="h-4 w-4" /> Print
             </Button>
             <Button
               variant="outline"
               onClick={() => printDocument(`${number}-invoice`)}
+              disabled={!canUseInvoice}
             >
               <Download className="h-4 w-4" /> PDF
             </Button>
-            <Button variant="outline" onClick={openWhatsApp}>
+            <Button
+              variant="outline"
+              onClick={openWhatsApp}
+              disabled={!canUseInvoice}
+            >
               <Share2 className="h-4 w-4" /> WhatsApp
             </Button>
-            <Button variant="outline" onClick={openEmail}>
+            <Button
+              variant="outline"
+              onClick={openEmail}
+              disabled={!canUseInvoice}
+            >
               <Mail className="h-4 w-4" /> Email
             </Button>
-            <Button onClick={saveInvoice}>
+            <Button
+              onClick={saveInvoice}
+              disabled={!canUseInvoice || productsLoading}
+            >
               <Save className="h-4 w-4" /> Save
             </Button>
           </>
@@ -226,13 +299,30 @@ function CreateInvoice() {
                   className="mt-1 w-full"
                   value={customer}
                   onChange={(e) => setCustomer(e.target.value)}
+                  disabled={customersLoading || !customers.length}
                 >
+                  {!customers.length && (
+                    <option value="">
+                      {customersLoading
+                        ? "Loading customers..."
+                        : "No customers available"}
+                    </option>
+                  )}
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
                   ))}
                 </Select>
+                {!customersLoading && !customers.length && (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/customers")}
+                    className="mt-2 text-xs font-medium text-primary hover:underline"
+                  >
+                    Add your first customer
+                  </button>
+                )}
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
@@ -284,10 +374,31 @@ function CreateInvoice() {
           <Card className="p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Items</h3>
-              <Button size="sm" variant="outline" onClick={addRow}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={addRow}
+                disabled={productsLoading || !products.length}
+              >
                 <Plus className="h-4 w-4" /> Add item
               </Button>
             </div>
+            {!productsLoading && !products.length && (
+              <div className="mb-4 rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm">
+                <div className="font-medium">No products available</div>
+                <p className="mt-1 text-muted-foreground">
+                  Add a product before creating invoice items.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => navigate("/products")}
+                >
+                  <Plus className="h-4 w-4" /> Add product
+                </Button>
+              </div>
+            )}
             <div className="overflow-x-auto -mx-5 px-5">
               <table className="w-full text-sm min-w-[720px]">
                 <thead className="text-xs uppercase text-muted-foreground">
@@ -319,6 +430,7 @@ function CreateInvoice() {
                               const p = products.find(
                                 (p) => p.id === e.target.value,
                               );
+                              if (!p) return;
                               update(r.id, {
                                 productId: p.id,
                                 price: p.price,
@@ -424,19 +536,23 @@ function CreateInvoice() {
             <div className="rounded-lg border border-dashed border-border p-4 text-sm">
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <div className="font-semibold">BillPro Inc.</div>
+                  <div className="font-semibold">{businessName}</div>
                   <div className="text-xs text-muted-foreground">
-                    12 MG Road, Bengaluru
+                    {businessAddress}
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-muted-foreground">INVOICE</div>
-                  <div className="font-medium">INV-2026-1008</div>
+                  <div className="font-medium">{number}</div>
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">Bill to</div>
-              <div className="font-medium">{cust.name}</div>
-              <div className="text-xs text-muted-foreground">{cust.city}</div>
+              <div className="font-medium">
+                {cust?.name || "Select a customer"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {cust?.city || ""}
+              </div>
               <div className="border-t border-border my-3" />
               <div className="flex justify-between text-base font-semibold">
                 <span>Total</span>
@@ -456,7 +572,7 @@ function CreateInvoice() {
             amount: totals.total,
             lines: documentLines,
           }}
-          customer={cust}
+          customer={cust || {}}
           business={documentSettings.business}
           settings={renderedSettings}
           printSettings={documentSettings.print}
