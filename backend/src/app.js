@@ -11,6 +11,7 @@ import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 import apiRoutes from "./routes/apiRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import { ApiError } from "./utils/ApiError.js";
+import { uploadRoot } from "./utils/uploadStorage.js";
 
 const app = express();
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
@@ -36,6 +37,15 @@ app.use(
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Authorization", "Content-Type"],
     maxAge: 86400,
+  }),
+);
+app.use(
+  "/uploads",
+  express.static(uploadRoot, {
+    fallthrough: false,
+    immutable: true,
+    maxAge: "1y",
+    index: false,
   }),
 );
 app.use(express.json({ limit: "1mb" }));

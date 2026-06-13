@@ -35,7 +35,7 @@ import {
 } from "@/components/common/Primitives";
 import { useAuth } from "@/context/AuthContext";
 import { useApiList } from "@/hooks/useApiList";
-import { api } from "@/lib/api";
+import { api, assetUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -67,6 +67,9 @@ const defaults = {
     gstin: "",
     pan: "",
     website: "",
+    registrationDocument: "",
+    gstCertificate: "",
+    panCard: "",
     eInvoicing: false,
     tds: false,
     tcs: false,
@@ -153,15 +156,60 @@ const sampleItems = [
   { name: "Stretch Film Roll", qty: 3, rate: 320, tax: 12 },
 ];
 
-function readImage(file, onLoad) {
-  if (!file) return;
-  if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+const MAX_IMAGE_FILE_SIZE = 2 * 1024 * 1024;
+const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 1200;
+
+function loadImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () =>
+      reject(new Error("Could not read the selected image"));
+    image.src = source;
+  });
+}
+
+async function prepareImage(file) {
+  if (!file) return null;
+  if (
+    !["image/jpeg", "image/png"].includes(file.type) ||
+    file.size > MAX_IMAGE_FILE_SIZE
+  ) {
     toast.error("Choose a JPG or PNG image smaller than 2 MB");
-    return;
+    return null;
   }
-  const reader = new FileReader();
-  reader.onload = () => onLoad(reader.result);
-  reader.readAsDataURL(file);
+
+  let source;
+  try {
+    source = URL.createObjectURL(file);
+    const image = await loadImage(source);
+
+    const scale = Math.min(
+      1,
+      MAX_IMAGE_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) =>
+          blob
+            ? resolve(blob)
+            : reject(new Error("Could not prepare the selected image")),
+        "image/webp",
+        0.82,
+      );
+    });
+  } catch (error) {
+    toast.error(error.message);
+    return null;
+  } finally {
+    if (source) URL.revokeObjectURL(source);
+  }
 }
 
 function SettingField({ label, hint, children, className }) {
@@ -253,7 +301,7 @@ function InvoicePreview({ business, invoice, compact = false }) {
           <div className="flex items-center gap-3">
             {business.logo && (
               <img
-                src={business.logo}
+                src={assetUrl(business.logo)}
                 alt=""
                 className="h-10 w-10 object-contain"
               />
@@ -347,7 +395,7 @@ function InvoicePreview({ business, invoice, compact = false }) {
         {business.signature && (
           <div className="mt-6 ml-auto w-36 text-center">
             <img
-              src={business.signature}
+              src={assetUrl(business.signature)}
               alt=""
               className="mx-auto h-12 max-w-full object-contain"
             />
@@ -367,6 +415,7 @@ function SettingsPage() {
   const [activeTab, setActiveTab] = useState("account");
   const [settings, setSettings] = useState(defaults);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState("");
   const [loading, setLoading] = useState(true);
   const [userModal, setUserModal] = useState(false);
   const [caModal, setCaModal] = useState(false);
@@ -419,14 +468,16 @@ function SettingsPage() {
   const save = async (name = activeTab, override) => {
     try {
       setSaving(true);
-      const value = override || settings[name];
+      const value = override ?? settings[name];
       await api.put("/settings", { [name]: value });
       setSettings((current) => ({ ...current, [name]: value }));
       toast.success(
         `${tabs.find((item) => item.id === name)?.label || "Settings"} saved`,
       );
+      return true;
     } catch (error) {
       toast.error(error.message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -448,6 +499,50 @@ function SettingsPage() {
       });
     } catch (error) {
       toast.error(error.message);
+    }
+  };
+
+  const uploadBusinessImage = async (key, file) => {
+    const image = await prepareImage(file);
+    if (!image) return;
+
+    await uploadBusinessFile(key, image);
+  };
+
+  const uploadBusinessDocument = async (key, file) => {
+    if (!file) return;
+    if (
+      !["image/jpeg", "image/png", "application/pdf"].includes(file.type) ||
+      file.size > MAX_DOCUMENT_FILE_SIZE
+    ) {
+      toast.error("Choose a JPG, PNG or PDF file smaller than 5 MB");
+      return;
+    }
+
+    await uploadBusinessFile(key, file);
+  };
+
+  const uploadBusinessFile = async (key, file) => {
+    const labels = {
+      logo: "Logo",
+      signature: "Signature",
+      registrationDocument: "Registration document",
+      gstCertificate: "GST certificate",
+      panCard: "PAN card",
+    };
+
+    try {
+      setUploading(key);
+      const uploaded = await api.upload(
+        `/settings/files/business/${key}`,
+        file,
+      );
+      updateSection("business", key, uploaded.url);
+      toast.success(`${labels[key]} uploaded`);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setUploading("");
     }
   };
 
@@ -633,7 +728,7 @@ function SettingsPage() {
                         <div className="grid h-12 w-14 shrink-0 place-items-center rounded-lg bg-primary/10">
                           {section[key] ? (
                             <img
-                              src={section[key]}
+                              src={assetUrl(section[key])}
                               alt=""
                               className="h-10 w-12 object-contain"
                             />
@@ -646,22 +741,88 @@ function SettingsPage() {
                             {label}
                           </span>
                           <span className="mt-1 block text-xs text-muted-foreground">
-                            JPG or PNG, maximum 2 MB
+                            {uploading === key
+                              ? "Uploading..."
+                              : "JPG or PNG, maximum 2 MB"}
                           </span>
                         </span>
                         <input
                           type="file"
                           accept="image/png,image/jpeg"
                           className="hidden"
-                          onChange={(event) =>
-                            readImage(event.target.files?.[0], (value) =>
-                              update(key, value),
-                            )
-                          }
+                          disabled={Boolean(uploading)}
+                          onChange={async (event) => {
+                            await uploadBusinessImage(
+                              key,
+                              event.target.files?.[0],
+                            );
+                            event.target.value = "";
+                          }}
                         />
                       </label>
                     ))}
                   </div>
+
+                  <Card className="p-5 sm:p-6">
+                    <div className="mb-4">
+                      <h3 className="font-semibold">Business documents</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Files are stored securely for this workspace. Uploading
+                        a replacement removes the previous file.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {[
+                        ["registrationDocument", "Registration document"],
+                        ["gstCertificate", "GST certificate"],
+                        ["panCard", "PAN card"],
+                      ].map(([key, label]) => (
+                        <div
+                          key={key}
+                          className="rounded-xl border border-dashed border-border transition-colors hover:border-primary/50 hover:bg-primary/5"
+                        >
+                          <label className="flex cursor-pointer items-start gap-3 p-4">
+                            <FileText className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                            <span className="min-w-0">
+                              <span className="block text-sm font-medium">
+                                {label}
+                              </span>
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                {uploading === key
+                                  ? "Uploading..."
+                                  : section[key]
+                                    ? "Uploaded - click to replace"
+                                    : "JPG, PNG or PDF, maximum 5 MB"}
+                              </span>
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,application/pdf"
+                              className="hidden"
+                              disabled={Boolean(uploading)}
+                              onChange={async (event) => {
+                                await uploadBusinessDocument(
+                                  key,
+                                  event.target.files?.[0],
+                                );
+                                event.target.value = "";
+                              }}
+                            />
+                          </label>
+                          {section[key] && uploading !== key && (
+                            <a
+                              href={assetUrl(section[key])}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mx-4 mb-4 inline-block text-xs font-medium text-primary hover:underline"
+                            >
+                              View document
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
 
                   <div className="grid items-start gap-6 xl:grid-cols-2">
                     <Card className="p-5 sm:p-6">
@@ -1488,8 +1649,7 @@ function SettingsPage() {
             </Button>
             <Button
               onClick={async () => {
-                await save("caSharing");
-                setCaModal(false);
+                if (await save("caSharing")) setCaModal(false);
               }}
             >
               Save CA

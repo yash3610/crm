@@ -28,6 +28,11 @@ export function errorHandler(error, req, res, next) {
     message = "Invalid resource id";
   }
 
+  if (error.type === "entity.too.large") {
+    statusCode = 413;
+    message = "The request is too large. Upload smaller images and try again.";
+  }
+
   res.status(statusCode).json({
     success: false,
     message,

@@ -77,7 +77,7 @@ export function createRateLimiter({
 }
 
 function assertSafeKeys(value) {
-  if (!value || typeof value !== "object") return;
+  if (!value || typeof value !== "object" || Buffer.isBuffer(value)) return;
 
   for (const [key, nestedValue] of Object.entries(value)) {
     if (

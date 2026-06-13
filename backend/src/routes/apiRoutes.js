@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 
 import { getDashboard } from "../controllers/dashboardController.js";
 import { invoiceController } from "../controllers/invoiceController.js";
@@ -23,6 +23,7 @@ import {
 } from "../controllers/resourceControllers.js";
 import {
   getSettings,
+  uploadSettingFile,
   updateSettings,
 } from "../controllers/settingsController.js";
 import { userController } from "../controllers/userController.js";
@@ -100,6 +101,15 @@ router.use(
   }),
 );
 router.get("/settings", getSettings);
+router.post(
+  "/settings/files/:section/:field",
+  allowRoles("Owner", "Admin"),
+  express.raw({
+    type: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+    limit: "5mb",
+  }),
+  uploadSettingFile,
+);
 router.put("/settings", allowRoles("Owner", "Admin"), updateSettings);
 
 export default router;
