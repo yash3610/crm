@@ -10,6 +10,7 @@ import {
   StatusBadge,
 } from "@/components/common/Primitives";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { DetailPageSkeleton } from "@/components/common/LoadingSkeletons";
 import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
 import { useAuth } from "@/context/AuthContext";
 import { formatINR, invoices } from "@/data/mock";
@@ -61,6 +62,7 @@ function InvoiceDetail() {
   const [payments, setPayments] = useState([]);
   const [deletingPayment, setDeletingPayment] = useState("");
   const [paymentToDelete, setPaymentToDelete] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -97,7 +99,8 @@ function InvoiceDetail() {
           },
         });
       })
-      .catch((error) => toast.error(error.message));
+      .catch((error) => toast.error(error.message))
+      .finally(() => setLoading(false));
   }, [id]);
 
   const deletePayment = async () => {
@@ -123,6 +126,8 @@ function InvoiceDetail() {
       setDeletingPayment("");
     }
   };
+
+  if (loading) return <DetailPageSkeleton document />;
 
   const lines = inv.lines?.length ? inv.lines : sampleLines;
   const total =

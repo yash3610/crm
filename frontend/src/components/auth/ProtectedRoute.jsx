@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
+import { WorkspaceSkeleton } from "@/components/common/LoadingSkeletons";
 import { useAuth } from "@/context/AuthContext";
 
 export function ProtectedRoute() {
@@ -7,13 +8,7 @@ export function ProtectedRoute() {
   const location = useLocation();
 
   if (loading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-background">
-        <div className="text-sm text-muted-foreground">
-          Loading workspace...
-        </div>
-      </div>
-    );
+    return <WorkspaceSkeleton />;
   }
 
   if (!user) {

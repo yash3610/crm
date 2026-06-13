@@ -32,6 +32,7 @@ import {
   Select,
   StatusBadge,
 } from "@/components/common/Primitives";
+import { SettingsPageSkeleton } from "@/components/common/LoadingSkeletons";
 import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
 import { useAuth } from "@/context/AuthContext";
 import { useApiList } from "@/hooks/useApiList";
@@ -460,11 +461,7 @@ function SettingsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="py-24 text-center text-muted-foreground">
-        Loading settings...
-      </div>
-    );
+    return <SettingsPageSkeleton />;
   }
 
   return (

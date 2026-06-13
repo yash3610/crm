@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DataTable } from "@/components/common/DataTable";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Badge,
   Button,
@@ -411,8 +412,14 @@ function UsersPage() {
         </div>
 
         {caLoading ? (
-          <div className="mt-4 text-sm text-muted-foreground">
-            Loading CA details...
+          <div className="mt-5 grid gap-4 rounded-xl bg-muted/40 p-4 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="space-y-2">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+            ))}
           </div>
         ) : ca.name ? (
           <div className="mt-5 grid gap-4 rounded-xl bg-muted/40 p-4 sm:grid-cols-3">
@@ -468,9 +475,7 @@ function UsersPage() {
         loading={loading}
         toolbar={
           loading ? (
-            <span className="text-xs text-muted-foreground">
-              Loading users...
-            </span>
+            <Skeleton className="h-4 w-20" />
           ) : (
             <span className="text-xs text-muted-foreground">
               {allRows.filter((member) => member.status === "active").length}{" "}

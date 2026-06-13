@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 const nav = [
   {
     label: "Overview",
@@ -169,6 +170,7 @@ export function AppShell() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
   const { dark, toggle } = useDark();
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
@@ -185,10 +187,13 @@ export function AppShell() {
   };
   const loadNotifications = useCallback(async () => {
     try {
+      setNotificationsLoading(true);
       const data = await api.get("/notifications");
       setNotifications(Array.isArray(data) ? data : []);
     } catch {
       setNotifications([]);
+    } finally {
+      setNotificationsLoading(false);
     }
   }, []);
   useEffect(() => {
@@ -343,7 +348,19 @@ export function AppShell() {
                     )}
                   </div>
                   <div className="max-h-72 overflow-y-auto">
-                    {notifications.length === 0 ? (
+                    {notificationsLoading ? (
+                      <div className="space-y-4 p-4">
+                        {Array.from({ length: 4 }).map((_, index) => (
+                          <div key={index} className="flex gap-3">
+                            <Skeleton className="mt-1 h-2 w-2 rounded-full" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-4 w-3/5" />
+                              <Skeleton className="h-3 w-full" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : notifications.length === 0 ? (
                       <div className="p-6 text-center text-sm text-muted-foreground">
                         No notifications yet
                       </div>

@@ -40,6 +40,7 @@ import {
 } from "@/data/mock";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { DashboardSkeleton } from "@/components/common/LoadingSkeletons";
 const CHART_COLORS = [
   "var(--chart-1)",
   "var(--chart-2)",
@@ -58,13 +59,17 @@ function Dashboard() {
     recentInvoices: invoices.slice(0, 5),
     notifications,
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api
       .get("/dashboard")
       .then(setDashboard)
-      .catch((error) => toast.error(error.message));
+      .catch((error) => toast.error(error.message))
+      .finally(() => setLoading(false));
   }, []);
+
+  if (loading) return <DashboardSkeleton />;
 
   const recent = dashboard.recentInvoices;
   return (

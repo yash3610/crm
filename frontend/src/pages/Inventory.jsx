@@ -20,6 +20,11 @@ import {
   History,
 } from "lucide-react";
 import { StatCard } from "@/components/common/StatCard";
+import {
+  PageHeaderSkeleton,
+  StatCardsSkeleton,
+} from "@/components/common/LoadingSkeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { downloadCsv } from "@/lib/downloadCsv";
@@ -48,6 +53,7 @@ function InventoryPage() {
   const [open, setOpen] = useState(false);
   const [target, setTarget] = useState(null);
   const [f, setF] = useState({ type: "in", qty: 0, reason: "" });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api
@@ -62,7 +68,8 @@ function InventoryPage() {
           })),
         );
       })
-      .catch((error) => toast.error(error.message));
+      .catch((error) => toast.error(error.message))
+      .finally(() => setLoading(false));
   }, []);
   const out = items.filter((p) => p.stock === 0).length;
   const low = items.filter((p) => p.stock > 0 && p.stock <= 10).length;
@@ -106,6 +113,38 @@ function InventoryPage() {
       toast.error(error.message);
     }
   };
+  if (loading) {
+    return (
+      <>
+        <PageHeaderSkeleton actions={1} />
+        <StatCardsSkeleton />
+        <Card className="mb-6 p-5">
+          <Skeleton className="mb-4 h-5 w-32" />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={index}
+                className="space-y-4 rounded-lg border border-border p-4"
+              >
+                <div className="flex justify-between">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                  <Skeleton className="h-5 w-14 rounded-full" />
+                </div>
+                <Skeleton className="h-8 w-20" />
+                <div className="grid grid-cols-2 gap-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </>
+    );
+  }
   return (
     <>
       <PageHeader

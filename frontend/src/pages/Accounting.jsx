@@ -18,6 +18,10 @@ import {
   Select,
 } from "@/components/common/Primitives";
 import { StatCard } from "@/components/common/StatCard";
+import {
+  PageHeaderSkeleton,
+  StatCardsSkeleton,
+} from "@/components/common/LoadingSkeletons";
 import { formatINR } from "@/data/mock";
 import { useApiList } from "@/hooks/useApiList";
 import { downloadCsv } from "@/lib/downloadCsv";
@@ -386,6 +390,39 @@ function AccountingPage() {
       filteredJournal.map(({ id, ...entry }) => entry),
     );
 
+  if (loading) {
+    return (
+      <>
+        <PageHeaderSkeleton />
+        <StatCardsSkeleton />
+        <Card className="overflow-hidden">
+          <div className="flex justify-between border-b border-border p-5">
+            <div className="space-y-2">
+              <div className="h-5 w-36 animate-pulse rounded bg-muted" />
+              <div className="h-3 w-52 animate-pulse rounded bg-muted" />
+            </div>
+            <div className="h-9 w-64 animate-pulse rounded bg-muted" />
+          </div>
+          <div className="space-y-3 p-5">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-7 gap-4 border-b border-border pb-3"
+              >
+                {Array.from({ length: 7 }).map((__, cell) => (
+                  <div
+                    key={cell}
+                    className="h-4 animate-pulse rounded bg-muted"
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </Card>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -490,16 +527,7 @@ function AccountingPage() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-5 py-16 text-center text-muted-foreground"
-                  >
-                    Loading accounting data...
-                  </td>
-                </tr>
-              ) : filteredJournal.length ? (
+              {filteredJournal.length ? (
                 filteredJournal.map((entry) => (
                   <tr
                     key={entry.id}

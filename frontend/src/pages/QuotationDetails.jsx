@@ -16,6 +16,7 @@ import {
   PageHeader,
   StatusBadge,
 } from "@/components/common/Primitives";
+import { DetailPageSkeleton } from "@/components/common/LoadingSkeletons";
 import { formatINR } from "@/data/mock";
 import { api } from "@/lib/api";
 import { printDocument } from "@/lib/printDocument";
@@ -73,9 +74,7 @@ function QuotationDetails() {
   }, [quotation]);
 
   if (!quotation) {
-    return (
-      <div className="py-20 text-center text-muted-foreground">Loading...</div>
-    );
+    return <DetailPageSkeleton document />;
   }
 
   const itemText = (quotation.lines || [])

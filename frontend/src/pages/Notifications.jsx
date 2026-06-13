@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { NotificationListSkeleton } from "@/components/common/LoadingSkeletons";
 import {
   Badge,
   Button,
@@ -283,9 +284,7 @@ function NotificationsPage() {
 
         <div className="divide-y divide-border">
           {loading ? (
-            <div className="p-16 text-center text-sm text-muted-foreground">
-              Loading notifications...
-            </div>
+            <NotificationListSkeleton />
           ) : filtered.length ? (
             filtered.map((item) => {
               const style = typeStyles[item.type] || typeStyles.info;

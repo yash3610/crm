@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 export function DataTable({
   rows,
@@ -102,14 +103,42 @@ export function DataTable({
                 </tr>
               ))}
             {loading && (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-4 py-12 text-center text-sm text-muted-foreground"
-                >
-                  Loading...
-                </td>
-              </tr>
+              <>
+                {Array.from({ length: Math.min(effectivePageSize, 8) }).map(
+                  (_, rowIndex) => (
+                    <tr key={rowIndex} className="border-t border-border">
+                      {columns.map((column, columnIndex) => (
+                        <td
+                          key={column.key}
+                          className={cn(
+                            "px-4 py-3 align-middle",
+                            column.className,
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "flex",
+                              column.className?.includes("text-right") &&
+                                "justify-end",
+                            )}
+                          >
+                            <Skeleton
+                              className={cn(
+                                "h-4",
+                                columnIndex === 0
+                                  ? "w-36"
+                                  : columnIndex % 3 === 0
+                                    ? "w-20"
+                                    : "w-24",
+                              )}
+                            />
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  ),
+                )}
+              </>
             )}
             {!loading && slice.length === 0 && (
               <tr>
@@ -125,12 +154,16 @@ export function DataTable({
         </table>
       </div>
       <div className="flex items-center justify-between px-4 py-3 border-t border-border text-xs text-muted-foreground">
-        <div>
-          Showing <span className="font-medium text-foreground">{start}</span>
-          {" - "}
-          <span className="font-medium text-foreground">{end}</span> of{" "}
-          <span className="font-medium text-foreground">{total}</span>
-        </div>
+        {loading ? (
+          <Skeleton className="h-4 w-32" />
+        ) : (
+          <div>
+            Showing <span className="font-medium text-foreground">{start}</span>
+            {" - "}
+            <span className="font-medium text-foreground">{end}</span> of{" "}
+            <span className="font-medium text-foreground">{total}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           {serverSide && onPageSizeChange && (
             <select
@@ -157,9 +190,13 @@ export function DataTable({
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="px-2">
-            Page {safePage} / {pages}
-          </span>
+          {loading ? (
+            <Skeleton className="h-4 w-16" />
+          ) : (
+            <span className="px-2">
+              Page {safePage} / {pages}
+            </span>
+          )}
           <button
             onClick={() =>
               serverSide
