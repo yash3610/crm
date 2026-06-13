@@ -345,11 +345,94 @@ async function preventPurchaseDelete(req) {
   }
 }
 
+function validateCustomer(payload, { isUpdate = false } = {}) {
+  const clean = { ...payload };
+  delete clean.outstanding;
+  delete clean.totalBilled;
+
+  if (clean.name !== undefined) {
+    if (typeof clean.name !== "string" || !clean.name.trim()) {
+      throw new ApiError(400, "Customer name is required");
+    }
+    clean.name = clean.name.trim();
+  } else if (!isUpdate) {
+    throw new ApiError(400, "Customer name is required");
+  }
+
+  if (clean.email !== undefined) {
+    if (typeof clean.email !== "string") {
+      throw new ApiError(400, "Enter a valid email address");
+    }
+    clean.email = clean.email.trim().toLowerCase();
+    if (
+      clean.email &&
+      (clean.email.length > 254 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean.email))
+    ) {
+      throw new ApiError(400, "Enter a valid email address");
+    }
+  }
+
+  if (clean.phone !== undefined) {
+    if (typeof clean.phone !== "string") {
+      throw new ApiError(400, "Enter a valid phone number");
+    }
+    clean.phone = clean.phone.trim().replace(/\s+/g, " ");
+    const digitCount = clean.phone.replace(/\D/g, "").length;
+    if (
+      clean.phone &&
+      (!/^\+?[\d\s().-]+$/.test(clean.phone) ||
+        digitCount < 7 ||
+        digitCount > 15)
+    ) {
+      throw new ApiError(
+        400,
+        "Enter a valid phone number with 7 to 15 digits",
+      );
+    }
+  }
+
+  if (clean.city !== undefined) {
+    if (typeof clean.city !== "string") {
+      throw new ApiError(400, "Enter a valid city");
+    }
+    clean.city = clean.city.trim();
+  }
+
+  return clean;
+}
+
+async function preventCustomerDelete(req) {
+  const conditions = [{ customerId: req.params.id }];
+  if (mongoose.isValidObjectId(req.params.id)) {
+    conditions.push({ _id: req.params.id });
+  }
+  const customer = await Customer.findOne({
+    tenantId: req.tenantId,
+    $or: conditions,
+  }).select("_id");
+  if (!customer) return;
+
+  const [hasInvoices, hasQuotations] = await Promise.all([
+    Invoice.exists({ tenantId: req.tenantId, customer: customer._id }),
+    Quotation.exists({ tenantId: req.tenantId, customerRef: customer._id }),
+  ]);
+  if (hasInvoices || hasQuotations) {
+    throw new ApiError(
+      409,
+      "This customer has transactions and cannot be deleted. Mark the customer inactive instead.",
+    );
+  }
+}
+
 export const customerController = createCrudController({
   Model: Customer,
   idField: "customerId",
   prefix: "C",
   searchFields: ["name", "email", "phone", "city"],
+  beforeCreate: (payload) => validateCustomer(payload),
+  beforeUpdate: (payload) => validateCustomer(payload, { isUpdate: true }),
+  beforeRemove: preventCustomerDelete,
   afterCreate: async (customer, req) => {
     await createNotification({
       tenantId: req.tenantId,
