@@ -4,6 +4,7 @@ import {
   PageHeader,
   Card,
   Button,
+  Select,
   StatusBadge,
 } from "@/components/common/Primitives";
 import { StatCard } from "@/components/common/StatCard";
@@ -33,7 +34,6 @@ import {
 import {
   invoices,
   products,
-  salesTrend,
   categoryMix,
   notifications,
   formatINR,
@@ -48,6 +48,13 @@ const CHART_COLORS = [
   "var(--chart-4)",
   "var(--chart-5)",
 ];
+const TREND_RANGES = {
+  "1m": "1 Month",
+  "3m": "3 Months",
+  "6m": "6 Months",
+  "1y": "1 Year",
+  overall: "Overall",
+};
 function Dashboard() {
   const [dashboard, setDashboard] = useState({
     summary: {
@@ -56,22 +63,40 @@ function Dashboard() {
       activeCustomers: 148,
       lowStockItems: products.filter((product) => product.stock <= 10).length,
     },
+    revenueExpenseTrend: [],
     recentInvoices: invoices.slice(0, 5),
     notifications,
   });
   const [loading, setLoading] = useState(true);
+  const [trendRange, setTrendRange] = useState("6m");
+  const [trendLoading, setTrendLoading] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    setTrendLoading(true);
     api
-      .get("/dashboard")
-      .then(setDashboard)
-      .catch((error) => toast.error(error.message))
-      .finally(() => setLoading(false));
-  }, []);
+      .get(`/dashboard?range=${trendRange}`)
+      .then((data) => {
+        if (active) setDashboard(data);
+      })
+      .catch((error) => {
+        if (active) toast.error(error.message);
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+          setTrendLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [trendRange]);
 
   if (loading) return <DashboardSkeleton />;
 
   const recent = dashboard.recentInvoices;
+  const revenueExpenseTrend = dashboard.revenueExpenseTrend || [];
   return (
     <>
       <PageHeader
@@ -124,17 +149,37 @@ function Dashboard() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
         <Card className="xl:col-span-2 p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <h3 className="font-semibold">Revenue vs expenses</h3>
-              <p className="text-xs text-muted-foreground">Last 6 months</p>
+              <p className="text-xs text-muted-foreground">
+                {TREND_RANGES[trendRange]}
+                {trendLoading ? " - Updating..." : ""}
+              </p>
             </div>
-            <span className="text-xs text-muted-foreground">in INR</span>
+            <div className="flex items-center gap-2">
+              <span className="hidden text-xs text-muted-foreground sm:inline">
+                in INR
+              </span>
+              <Select
+                value={trendRange}
+                onChange={(event) => setTrendRange(event.target.value)}
+                aria-label="Revenue and expenses period"
+                className="h-8 text-xs"
+                disabled={trendLoading}
+              >
+                {Object.entries(TREND_RANGES).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
           <div className="h-72">
             <ResponsiveContainer>
               <AreaChart
-                data={salesTrend}
+                data={revenueExpenseTrend}
                 margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
               >
                 <defs>
@@ -183,6 +228,7 @@ function Dashboard() {
                   tickFormatter={(v) => `${v / 1000}k`}
                 />
                 <Tooltip
+                  formatter={(value, name) => [formatINR(value), name]}
                   contentStyle={{
                     background: "var(--popover)",
                     border: "1px solid var(--border)",
@@ -193,6 +239,7 @@ function Dashboard() {
                 <Area
                   type="monotone"
                   dataKey="sales"
+                  name="Revenue"
                   stroke="var(--chart-1)"
                   strokeWidth={2.5}
                   fill="url(#g1)"
@@ -200,6 +247,7 @@ function Dashboard() {
                 <Area
                   type="monotone"
                   dataKey="expenses"
+                  name="Expenses"
                   stroke="var(--chart-4)"
                   strokeWidth={2.5}
                   fill="url(#g2)"
