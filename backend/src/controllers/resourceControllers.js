@@ -425,6 +425,52 @@ async function preventCustomerDelete(req) {
   }
 }
 
+async function withCustomerInvoiceTotals(customers, req) {
+  if (!customers.length) return customers;
+
+  const customerIds = customers
+    .map((customer) => customer.mongoId)
+    .filter((id) => mongoose.isValidObjectId(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+  const totals = await Invoice.aggregate([
+    {
+      $match: {
+        tenantId: req.tenantId,
+        customer: { $in: customerIds },
+        status: { $nin: ["draft", "cancelled"] },
+      },
+    },
+    {
+      $group: {
+        _id: "$customer",
+        totalBilled: { $sum: "$amount" },
+        outstanding: {
+          $sum: {
+            $max: [
+              0,
+              {
+                $subtract: ["$amount", { $ifNull: ["$paidAmount", 0] }],
+              },
+            ],
+          },
+        },
+      },
+    },
+  ]);
+  const totalsByCustomer = new Map(
+    totals.map((item) => [String(item._id), item]),
+  );
+
+  return customers.map((customer) => {
+    const total = totalsByCustomer.get(String(customer.mongoId));
+    return {
+      ...customer,
+      totalBilled: total?.totalBilled || 0,
+      outstanding: total?.outstanding || 0,
+    };
+  });
+}
+
 export const customerController = createCrudController({
   Model: Customer,
   idField: "customerId",
@@ -433,6 +479,7 @@ export const customerController = createCrudController({
   beforeCreate: (payload) => validateCustomer(payload),
   beforeUpdate: (payload) => validateCustomer(payload, { isUpdate: true }),
   beforeRemove: preventCustomerDelete,
+  enrich: withCustomerInvoiceTotals,
   afterCreate: async (customer, req) => {
     await createNotification({
       tenantId: req.tenantId,

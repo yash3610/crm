@@ -258,6 +258,17 @@ async function verify() {
     );
     assert.equal(customerRead.body.data.outstanding, 0);
     assert.equal(customerRead.body.data.totalBilled, 708);
+    await Customer.updateOne(
+      { _id: customer.body.data.mongoId },
+      { $set: { outstanding: 999999, totalBilled: 999999 } },
+    );
+    const customerWithStaleCounters = await request(
+      baseUrl,
+      `/customers/${customer.body.data.id}`,
+      { headers: auth(alphaToken) },
+    );
+    assert.equal(customerWithStaleCounters.body.data.outstanding, 0);
+    assert.equal(customerWithStaleCounters.body.data.totalBilled, 708);
 
     const mutatePayment = await request(
       baseUrl,

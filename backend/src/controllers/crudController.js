@@ -47,7 +47,12 @@ export function createCrudController({
   beforeUpdate,
   beforeRemove,
   transform,
+  enrich,
 }) {
+  async function enrichItems(items, req) {
+    return enrich ? enrich(items, req) : items;
+  }
+
   const list = asyncHandler(async (req, res) => {
     const query = { tenantId: req.tenantId };
     const requestedPage = Number.parseInt(req.query.page, 10);
@@ -90,9 +95,13 @@ export function createCrudController({
     const sort = allowedSortFields.has(sortField) ? requestedSort : defaultSort;
     if (!paginated) {
       const items = await Model.find(query).sort(sort).limit(500);
+      const data = await enrichItems(
+        items.map((item) => normalize(item, idField, transform)),
+        req,
+      );
       return res.json({
         success: true,
-        data: items.map((item) => normalize(item, idField, transform)),
+        data,
       });
     }
 
@@ -103,10 +112,14 @@ export function createCrudController({
       .sort(sort)
       .skip((safePage - 1) * limit)
       .limit(limit);
+    const data = await enrichItems(
+      items.map((item) => normalize(item, idField, transform)),
+      req,
+    );
     res.json({
       success: true,
       data: {
-        items: items.map((item) => normalize(item, idField, transform)),
+        items: data,
         pagination: {
           page: safePage,
           limit,
@@ -124,7 +137,11 @@ export function createCrudController({
       resourceQuery(req.tenantId, req.params.id, idField),
     );
     if (!item) throw new ApiError(404, "Resource not found");
-    res.json({ success: true, data: normalize(item, idField, transform) });
+    const [data] = await enrichItems(
+      [normalize(item, idField, transform)],
+      req,
+    );
+    res.json({ success: true, data });
   });
 
   const create = asyncHandler(async (req, res) => {
@@ -135,10 +152,14 @@ export function createCrudController({
 
     const item = await Model.create(payload);
     if (afterCreate) await afterCreate(item, req);
+    const [data] = await enrichItems(
+      [normalize(item, idField, transform)],
+      req,
+    );
     res.status(201).json({
       success: true,
       message: "Created successfully",
-      data: normalize(item, idField, transform),
+      data,
     });
   });
 
@@ -153,10 +174,14 @@ export function createCrudController({
     );
     if (!item) throw new ApiError(404, "Resource not found");
 
+    const [data] = await enrichItems(
+      [normalize(item, idField, transform)],
+      req,
+    );
     res.json({
       success: true,
       message: "Updated successfully",
-      data: normalize(item, idField, transform),
+      data,
     });
   });
 
