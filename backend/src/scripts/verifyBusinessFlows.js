@@ -184,6 +184,8 @@ async function verify() {
       }),
     });
     assert.equal(invoice.status, 201);
+    assert.match(invoice.body.data.number, /^INV-\d{4}-\d{6,}$/);
+    assert.notEqual(invoice.body.data.number, `INV-${suffix}`);
     assert.equal(invoice.body.data.status, "pending");
     assert.equal(invoice.body.data.customer, "Flow Customer");
     assert.equal(invoice.body.data.amount, 708);

@@ -3,11 +3,85 @@ import mongoose from "mongoose";
 import Customer from "../models/Customer.js";
 import Invoice from "../models/Invoice.js";
 import Product from "../models/Product.js";
+import Sequence from "../models/Sequence.js";
 import StockMovement from "../models/StockMovement.js";
 import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { createNotification } from "../utils/createNotification.js";
 import { createCrudController } from "./crudController.js";
 import { generateCode } from "../utils/generateCode.js";
+
+function getInvoiceSequenceKey(year) {
+  return `invoice-number-${year}`;
+}
+
+function formatInvoiceNumber(year, value) {
+  return `INV-${year}-${String(value).padStart(6, "0")}`;
+}
+
+async function getExistingInvoiceMaximum(tenantId, year) {
+  const numberPattern = new RegExp(`^INV-${year}-(\\d+)$`);
+  const invoices = await Invoice.find({
+    tenantId,
+    number: { $regex: numberPattern },
+  })
+    .select("number")
+    .lean();
+
+  return invoices.reduce(
+    (maximum, invoice) => {
+      const match = invoice.number.match(numberPattern);
+      return Math.max(maximum, Number.parseInt(match?.[1], 10) || 0);
+    },
+    0,
+  );
+}
+
+async function ensureInvoiceSequence(tenantId, year) {
+  const key = getInvoiceSequenceKey(year);
+  let sequence = await Sequence.findOne({
+    tenantId,
+    key,
+  });
+  if (sequence) return sequence;
+
+  const existingMaximum = await getExistingInvoiceMaximum(tenantId, year);
+  try {
+    sequence = await Sequence.create({
+      tenantId,
+      key,
+      value: existingMaximum,
+    });
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    sequence = await Sequence.findOne({
+      tenantId,
+      key,
+    });
+  }
+  return sequence;
+}
+
+async function reserveNextInvoiceNumber(tenantId) {
+  const year = new Date().getFullYear();
+  const key = getInvoiceSequenceKey(year);
+  await ensureInvoiceSequence(tenantId, year);
+  const sequence = await Sequence.findOneAndUpdate(
+    { tenantId, key },
+    { $inc: { value: 1 } },
+    { new: true },
+  );
+  return formatInvoiceNumber(year, sequence.value);
+}
+
+export const getNextInvoiceNumber = asyncHandler(async (req, res) => {
+  const year = new Date().getFullYear();
+  const sequence = await ensureInvoiceSequence(req.tenantId, year);
+  res.json({
+    success: true,
+    data: { number: formatInvoiceNumber(year, sequence.value + 1) },
+  });
+});
 
 function calculateInvoice(payload) {
   if (!payload.lines?.length) return payload;
@@ -104,6 +178,7 @@ async function validateInvoiceOwnership(payload, req) {
   }
 
   if (!isUpdate) {
+    payload.number = await reserveNextInvoiceNumber(req.tenantId);
     payload.status = "pending";
     payload.paidAmount = 0;
     payload.stockPosted = false;

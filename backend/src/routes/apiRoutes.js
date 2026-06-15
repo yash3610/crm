@@ -1,7 +1,10 @@
 import express, { Router } from "express";
 
 import { getDashboard } from "../controllers/dashboardController.js";
-import { invoiceController } from "../controllers/invoiceController.js";
+import {
+  getNextInvoiceNumber,
+  invoiceController,
+} from "../controllers/invoiceController.js";
 import {
   adjustStock,
   getInventory,
@@ -49,6 +52,7 @@ router.use(
   }),
 );
 router.use("/products", createCrudRouter(productController));
+router.get("/invoices/next-number", getNextInvoiceNumber);
 router.use(
   "/invoices",
   createCrudRouter(invoiceController, {

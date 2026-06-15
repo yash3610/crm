@@ -33,7 +33,7 @@ function CreateInvoice() {
     new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
   );
   const [number, setNumber] = useState(
-    `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
+    `INV-${new Date().getFullYear()}-000001`,
   );
   const [documentSettings, setDocumentSettings] = useState({
     business: {},
@@ -128,6 +128,13 @@ function CreateInvoice() {
 
   useEffect(() => {
     api
+      .get("/invoices/next-number")
+      .then((data) => setNumber(data.number))
+      .catch((error) => toast.error(error.message));
+  }, []);
+
+  useEffect(() => {
+    api
       .get("/settings")
       .then((settings) =>
         setDocumentSettings((current) => ({
@@ -214,8 +221,7 @@ function CreateInvoice() {
     }
 
     try {
-      await api.post("/invoices", {
-        number,
+      const invoice = await api.post("/invoices", {
         customer: cust?.mongoId,
         customerName: cust?.name,
         date,
@@ -233,10 +239,18 @@ function CreateInvoice() {
           };
         }),
       });
-      toast.success("Invoice saved");
-      setNumber(
-        `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
-      );
+      setNumber(invoice.number);
+      toast.success(`Invoice ${invoice.number} saved`);
+      api
+        .get("/invoices/next-number")
+        .then((nextInvoice) => setNumber(nextInvoice.number))
+        .catch(() => {
+          const match = invoice.number.match(/^(INV-\d{4}-)(\d+)$/);
+          if (!match) return;
+          setNumber(
+            `${match[1]}${String(Number(match[2]) + 1).padStart(6, "0")}`,
+          );
+        });
     } catch (error) {
       toast.error(error.message);
     }
@@ -341,11 +355,7 @@ function CreateInvoice() {
                 <label className="text-xs font-medium text-muted-foreground">
                   Invoice #
                 </label>
-                <Input
-                  value={number}
-                  onChange={(event) => setNumber(event.target.value)}
-                  className="mt-1"
-                />
+                <Input value={number} readOnly className="mt-1" />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
