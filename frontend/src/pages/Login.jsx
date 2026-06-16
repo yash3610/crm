@@ -5,6 +5,11 @@ import { Button, Input } from "@/components/common/Primitives";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import {
+  CONTACT_LIMITS,
+  normalizeEmail,
+  validateEmail,
+} from "@/lib/contactValidation";
 
 function LoginPage() {
   const nav = useNavigate();
@@ -40,9 +45,12 @@ function LoginPage() {
       <form
         onSubmit={async (e) => {
           e.preventDefault();
+          const payload = { ...form, email: normalizeEmail(form.email) };
+          const emailError = validateEmail(payload.email, { required: true });
+          if (emailError) return toast.error(emailError);
           try {
             setLoading(true);
-            await login(form, remember);
+            await login(payload, remember);
             toast.success("Signed in");
             const destination =
               typeof location.state?.from === "string"
@@ -72,6 +80,7 @@ function LoginPage() {
                 setForm({ ...form, email: event.target.value })
               }
               className="pl-9"
+              maxLength={CONTACT_LIMITS.email}
             />
           </div>
         </label>

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import User from "../models/User.js";
 import { ApiError } from "../utils/ApiError.js";
+import { assertEmail, assertName } from "../utils/contactValidation.js";
 import { createCrudController } from "./crudController.js";
 
 const MANAGEABLE_ROLES = ["Owner", "Admin", "Accountant", "Sales", "Viewer"];
@@ -26,7 +27,10 @@ async function assertCanManageUser(req, payload = {}) {
     (payload.status === "inactive" ||
       (payload.role !== undefined && payload.role !== "Owner"))
   ) {
-    throw new ApiError(400, "The workspace owner cannot be disabled or reassigned");
+    throw new ApiError(
+      400,
+      "The workspace owner cannot be disabled or reassigned",
+    );
   }
   if (req.user._id.equals(target._id)) {
     if (
@@ -42,8 +46,10 @@ async function assertCanManageUser(req, payload = {}) {
 async function validateUserPayload(payload, req, target) {
   const clean = { ...payload };
 
-  if (clean.name !== undefined) clean.name = clean.name.trim();
-  if (clean.email !== undefined) clean.email = clean.email.trim().toLowerCase();
+  if (clean.name !== undefined) clean.name = assertName(clean.name);
+  if (clean.email !== undefined) {
+    clean.email = assertEmail(clean.email, { required: true });
+  }
 
   if (clean.role !== undefined && !MANAGEABLE_ROLES.includes(clean.role)) {
     throw new ApiError(400, "Select a valid role");
@@ -66,6 +72,9 @@ export const userController = createCrudController({
     const clean = await validateUserPayload(payload, req);
     if (clean.role === "Owner") {
       throw new ApiError(400, "This workspace already has an owner");
+    }
+    if (clean.password && clean.password.length < 8) {
+      throw new ApiError(400, "Password must be at least 8 characters");
     }
     return {
       ...clean,

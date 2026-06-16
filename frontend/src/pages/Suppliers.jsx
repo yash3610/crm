@@ -11,25 +11,61 @@ import { suppliers as seed, formatINR } from "@/data/mock";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useApiList } from "@/hooks/useApiList";
+import {
+  CONTACT_LIMITS,
+  normalizeName,
+  normalizePhone,
+  validateName,
+  validatePhone,
+} from "@/lib/contactValidation";
+
+const emptyForm = {
+  name: "",
+  contact: "",
+  phone: "",
+  city: "",
+  payable: 0,
+};
+
+function cleanSupplierForm(form) {
+  return {
+    name: normalizeName(form.name),
+    contact: normalizeName(form.contact),
+    phone: normalizePhone(form.phone),
+    city: form.city.trim(),
+    payable: Number(form.payable) || 0,
+  };
+}
+
+function validateSupplierForm(form) {
+  const nameError = validateName(form.name, "Supplier name");
+  if (nameError) return nameError;
+  if (form.contact.length > CONTACT_LIMITS.name) {
+    return `Contact person cannot exceed ${CONTACT_LIMITS.name} characters`;
+  }
+  const phoneError = validatePhone(form.phone);
+  if (phoneError) return phoneError;
+  if (form.city.length > CONTACT_LIMITS.city) {
+    return `City cannot exceed ${CONTACT_LIMITS.city} characters`;
+  }
+  return "";
+}
+
 function SuppliersPage() {
   const { rows, loading, create, pagination, setPage, setPageSize, setSearch } =
     useApiList("/suppliers", seed, { paginated: true });
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({
-    name: "",
-    contact: "",
-    phone: "",
-    city: "",
-    payable: 0,
-  });
+  const [f, setF] = useState(emptyForm);
   const submit = async (e) => {
     e.preventDefault();
-    if (!f.name.trim()) return toast.error("Supplier name is required");
+    const payload = cleanSupplierForm(f);
+    const validationError = validateSupplierForm(payload);
+    if (validationError) return toast.error(validationError);
     try {
-      await create({ ...f, payable: Number(f.payable) || 0 });
-      toast.success(`Supplier "${f.name}" added`);
+      await create(payload);
+      toast.success(`Supplier "${payload.name}" added`);
       setOpen(false);
-      setF({ name: "", contact: "", phone: "", city: "", payable: 0 });
+      setF(emptyForm);
     } catch (error) {
       toast.error(error.message);
     }
@@ -108,6 +144,7 @@ function SuppliersPage() {
               value={f.name}
               onChange={(e) => setF({ ...f, name: e.target.value })}
               placeholder="Maven Components"
+              maxLength={CONTACT_LIMITS.name}
             />
           </Field>
           <Field label="Contact person">
@@ -115,13 +152,18 @@ function SuppliersPage() {
               value={f.contact}
               onChange={(e) => setF({ ...f, contact: e.target.value })}
               placeholder="R. Iyer"
+              maxLength={CONTACT_LIMITS.name}
             />
           </Field>
-          <Field label="Phone">
+          <Field label="Phone" hint="7 to 15 digits; country code is allowed">
             <Input
+              type="tel"
               value={f.phone}
               onChange={(e) => setF({ ...f, phone: e.target.value })}
               placeholder="+91 90XXX XXXXX"
+              inputMode="tel"
+              autoComplete="tel"
+              maxLength={CONTACT_LIMITS.phone}
             />
           </Field>
           <Field label="City">
@@ -129,6 +171,7 @@ function SuppliersPage() {
               value={f.city}
               onChange={(e) => setF({ ...f, city: e.target.value })}
               placeholder="Pune"
+              maxLength={CONTACT_LIMITS.city}
             />
           </Field>
           <Field label="Opening payable (₹)">

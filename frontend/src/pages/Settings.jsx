@@ -37,6 +37,15 @@ import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
 import { useAuth } from "@/context/AuthContext";
 import { useApiList } from "@/hooks/useApiList";
 import { api, assetUrl } from "@/lib/api";
+import {
+  CONTACT_LIMITS,
+  normalizeEmail,
+  normalizeName,
+  normalizePhone,
+  validateEmail,
+  validateName,
+  validatePhone,
+} from "@/lib/contactValidation";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -233,6 +242,59 @@ function SettingField({ label, hint, children, className }) {
   );
 }
 
+function cleanContactSection(value = {}) {
+  return {
+    ...value,
+    name: normalizeName(value.name),
+    phone: normalizePhone(value.phone),
+    email: normalizeEmail(value.email),
+  };
+}
+
+function validateContactSection(
+  value,
+  { nameLabel = "Name", requireName = false } = {},
+) {
+  if (requireName || value.name) {
+    const nameError = validateName(value.name, nameLabel);
+    if (nameError) return nameError;
+  }
+  const phoneError = validatePhone(value.phone);
+  if (phoneError) return phoneError;
+  const emailError = validateEmail(value.email);
+  if (emailError) return emailError;
+  return "";
+}
+
+function validateSettingsSection(name, value) {
+  if (name === "account") {
+    return validateContactSection(value, { nameLabel: "Full name" });
+  }
+  if (name === "business") {
+    return validateContactSection(value, {
+      nameLabel: "Business name",
+      requireName: Boolean(value.name),
+    });
+  }
+  if (name === "caSharing") {
+    const clean = cleanContactSection(value);
+    if (clean.name || clean.phone || clean.email || clean.enabled) {
+      const nameError = validateName(clean.name, "CA name");
+      if (nameError) return nameError;
+      if (!clean.phone && !clean.email) return "CA phone or email is required";
+      return validateContactSection(clean, { nameLabel: "CA name" });
+    }
+  }
+  return "";
+}
+
+function cleanSettingsSection(name, value) {
+  if (["account", "business", "caSharing"].includes(name)) {
+    return cleanContactSection(value);
+  }
+  return value;
+}
+
 function Toggle({ checked, onChange, label, description }) {
   return (
     <button
@@ -383,7 +445,12 @@ function SettingsPage() {
   const save = async (name = activeTab, override) => {
     try {
       setSaving(true);
-      const value = override ?? settings[name];
+      const value = cleanSettingsSection(name, override ?? settings[name]);
+      const validationError = validateSettingsSection(name, value);
+      if (validationError) {
+        toast.error(validationError);
+        return false;
+      }
       await api.put("/settings", { [name]: value });
       setSettings((current) => ({ ...current, [name]: value }));
       toast.success(
@@ -400,9 +467,21 @@ function SettingsPage() {
 
   const inviteUser = async (event) => {
     event.preventDefault();
+    const payload = {
+      ...userForm,
+      name: normalizeName(userForm.name),
+      email: normalizeEmail(userForm.email),
+    };
+    const nameError = validateName(payload.name, "Full name");
+    if (nameError) return toast.error(nameError);
+    const emailError = validateEmail(payload.email, { required: true });
+    if (emailError) return toast.error(emailError);
+    if (payload.password.length < 8) {
+      return toast.error("Temporary password must be at least 8 characters");
+    }
     try {
-      await createUser(userForm);
-      toast.success(`User ${userForm.email} added`);
+      await createUser(payload);
+      toast.success(`User ${payload.email} added`);
       setUserModal(false);
       setUserForm({
         name: "",
@@ -578,12 +657,17 @@ function SettingsPage() {
                       <Input
                         value={section.name}
                         onChange={(e) => update("name", e.target.value)}
+                        maxLength={CONTACT_LIMITS.name}
                       />
                     </SettingField>
                     <SettingField label="Mobile number">
                       <Input
+                        type="tel"
                         value={section.phone}
                         onChange={(e) => update("phone", e.target.value)}
+                        inputMode="tel"
+                        autoComplete="tel"
+                        maxLength={CONTACT_LIMITS.phone}
                       />
                     </SettingField>
                     <SettingField label="Email">
@@ -591,6 +675,8 @@ function SettingsPage() {
                         type="email"
                         value={section.email}
                         onChange={(e) => update("email", e.target.value)}
+                        maxLength={CONTACT_LIMITS.email}
+                        autoComplete="email"
                       />
                     </SettingField>
                   </div>
@@ -750,12 +836,17 @@ function SettingsPage() {
                           <Input
                             value={section.name}
                             onChange={(e) => update("name", e.target.value)}
+                            maxLength={CONTACT_LIMITS.name}
                           />
                         </SettingField>
                         <SettingField label="Company phone">
                           <Input
+                            type="tel"
                             value={section.phone}
                             onChange={(e) => update("phone", e.target.value)}
+                            inputMode="tel"
+                            autoComplete="tel"
+                            maxLength={CONTACT_LIMITS.phone}
                           />
                         </SettingField>
                         <SettingField label="Company email">
@@ -763,6 +854,8 @@ function SettingsPage() {
                             type="email"
                             value={section.email}
                             onChange={(e) => update("email", e.target.value)}
+                            maxLength={CONTACT_LIMITS.email}
+                            autoComplete="email"
                           />
                         </SettingField>
                         <SettingField
@@ -1539,6 +1632,7 @@ function SettingsPage() {
               onChange={(e) =>
                 setUserForm({ ...userForm, name: e.target.value })
               }
+              maxLength={CONTACT_LIMITS.name}
             />
           </SettingField>
           <SettingField label="Email">
@@ -1549,6 +1643,8 @@ function SettingsPage() {
               onChange={(e) =>
                 setUserForm({ ...userForm, email: e.target.value })
               }
+              maxLength={CONTACT_LIMITS.email}
+              autoComplete="email"
             />
           </SettingField>
           <SettingField label="Role">
@@ -1606,14 +1702,19 @@ function SettingsPage() {
               onChange={(e) =>
                 updateSection("caSharing", "name", e.target.value)
               }
+              maxLength={CONTACT_LIMITS.name}
             />
           </SettingField>
           <SettingField label="CA WhatsApp number">
             <Input
+              type="tel"
               value={settings.caSharing.phone}
               onChange={(e) =>
                 updateSection("caSharing", "phone", e.target.value)
               }
+              inputMode="tel"
+              autoComplete="tel"
+              maxLength={CONTACT_LIMITS.phone}
             />
           </SettingField>
           <SettingField label="CA email (optional)">
@@ -1623,6 +1724,8 @@ function SettingsPage() {
               onChange={(e) =>
                 updateSection("caSharing", "email", e.target.value)
               }
+              maxLength={CONTACT_LIMITS.email}
+              autoComplete="email"
             />
           </SettingField>
           <div className="rounded-lg bg-warning/10 p-3 text-xs text-warning-foreground">

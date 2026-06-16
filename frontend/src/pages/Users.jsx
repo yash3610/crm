@@ -28,6 +28,15 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useApiList } from "@/hooks/useApiList";
 import { api } from "@/lib/api";
+import {
+  CONTACT_LIMITS,
+  normalizeEmail,
+  normalizeName,
+  normalizePhone,
+  validateEmail,
+  validateName,
+  validatePhone,
+} from "@/lib/contactValidation";
 
 const roles = [
   {
@@ -82,6 +91,45 @@ function formatLastSeen(value) {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+function cleanUserForm(form) {
+  return {
+    ...form,
+    name: normalizeName(form.name),
+    email: normalizeEmail(form.email),
+  };
+}
+
+function validateUserForm(form, editing) {
+  const nameError = validateName(form.name, "Name");
+  if (nameError) return nameError;
+  const emailError = validateEmail(form.email, { required: true });
+  if (emailError) return emailError;
+  if (!editing && form.password.length < 8) {
+    return "Temporary password must be at least 8 characters";
+  }
+  return "";
+}
+
+function cleanCaForm(form) {
+  return {
+    ...form,
+    name: normalizeName(form.name),
+    phone: normalizePhone(form.phone),
+    email: normalizeEmail(form.email),
+  };
+}
+
+function validateCaForm(form) {
+  const nameError = validateName(form.name, "CA name");
+  if (nameError) return nameError;
+  if (!form.phone && !form.email) return "CA phone or email is required";
+  const phoneError = validatePhone(form.phone);
+  if (phoneError) return phoneError;
+  const emailError = validateEmail(form.email);
+  if (emailError) return emailError;
+  return "";
 }
 
 function UsersPage() {
@@ -147,20 +195,9 @@ function UsersPage() {
 
   const submit = async (event) => {
     event.preventDefault();
-    if (!form.name.trim() || !form.email.trim()) {
-      toast.error("Name and email are required");
-      return;
-    }
-    if (!editing && form.password.length < 8) {
-      toast.error("Temporary password must be at least 8 characters");
-      return;
-    }
-
-    const payload = {
-      ...form,
-      name: form.name.trim(),
-      email: form.email.trim(),
-    };
+    const payload = cleanUserForm(form);
+    const validationError = validateUserForm(payload, editing);
+    if (validationError) return toast.error(validationError);
     if (editing && !payload.password) delete payload.password;
 
     try {
@@ -202,17 +239,9 @@ function UsersPage() {
 
   const saveCa = async (event) => {
     event.preventDefault();
-    if (!caForm.name.trim() || (!caForm.phone.trim() && !caForm.email.trim())) {
-      toast.error("CA name and phone or email are required");
-      return;
-    }
-
-    const payload = {
-      ...caForm,
-      name: caForm.name.trim(),
-      phone: caForm.phone.trim(),
-      email: caForm.email.trim(),
-    };
+    const payload = cleanCaForm(caForm);
+    const validationError = validateCaForm(payload);
+    if (validationError) return toast.error(validationError);
     try {
       setSaving(true);
       await api.put("/settings", { caSharing: payload });
@@ -516,6 +545,7 @@ function UsersPage() {
               onChange={(event) =>
                 setForm({ ...form, name: event.target.value })
               }
+              maxLength={CONTACT_LIMITS.name}
             />
           </Field>
           <Field label="Work email" required>
@@ -526,6 +556,8 @@ function UsersPage() {
               onChange={(event) =>
                 setForm({ ...form, email: event.target.value })
               }
+              maxLength={CONTACT_LIMITS.email}
+              autoComplete="email"
             />
           </Field>
           <Field label="Role">
@@ -622,6 +654,7 @@ function UsersPage() {
               onChange={(event) =>
                 setCaForm({ ...caForm, name: event.target.value })
               }
+              maxLength={CONTACT_LIMITS.name}
             />
           </Field>
           <Field label="Sharing status">
@@ -641,10 +674,14 @@ function UsersPage() {
           </Field>
           <Field label="WhatsApp / phone">
             <Input
+              type="tel"
               value={caForm.phone}
               onChange={(event) =>
                 setCaForm({ ...caForm, phone: event.target.value })
               }
+              inputMode="tel"
+              autoComplete="tel"
+              maxLength={CONTACT_LIMITS.phone}
             />
           </Field>
           <Field label="Email">
@@ -654,6 +691,8 @@ function UsersPage() {
               onChange={(event) =>
                 setCaForm({ ...caForm, email: event.target.value })
               }
+              maxLength={CONTACT_LIMITS.email}
+              autoComplete="email"
             />
           </Field>
           <Field label="Sharing frequency">

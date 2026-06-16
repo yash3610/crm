@@ -5,6 +5,11 @@ import { Button, Input } from "@/components/common/Primitives";
 import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import {
+  CONTACT_LIMITS,
+  normalizeEmail,
+  validateEmail,
+} from "@/lib/contactValidation";
 function ForgotPage() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -47,7 +52,11 @@ function ForgotPage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const email = new FormData(e.currentTarget).get("email");
+            const email = normalizeEmail(
+              new FormData(e.currentTarget).get("email"),
+            );
+            const emailError = validateEmail(email, { required: true });
+            if (emailError) return toast.error(emailError);
             try {
               setLoading(true);
               const result = await api.post("/auth/forgot-password", { email });
@@ -71,6 +80,7 @@ function ForgotPage() {
               required
               className="mt-1.5"
               autoComplete="email"
+              maxLength={CONTACT_LIMITS.email}
             />
           </label>
           <Button type="submit" className="w-full" disabled={loading}>

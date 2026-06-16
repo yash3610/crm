@@ -15,6 +15,15 @@ import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useApiList } from "@/hooks/useApiList";
 import { downloadCsv } from "@/lib/downloadCsv";
+import {
+  CONTACT_LIMITS,
+  normalizeEmail,
+  normalizeName,
+  normalizePhone,
+  validateEmail,
+  validateName,
+  validatePhone,
+} from "@/lib/contactValidation";
 
 const emptyForm = {
   name: "",
@@ -26,36 +35,24 @@ const emptyForm = {
 
 function cleanCustomerForm(form) {
   return {
-    name: form.name.trim(),
-    email: form.email.trim().toLowerCase(),
-    phone: form.phone.trim().replace(/\s+/g, " "),
+    name: normalizeName(form.name),
+    email: normalizeEmail(form.email),
+    phone: normalizePhone(form.phone),
     city: form.city.trim(),
     status: form.status,
   };
 }
 
 function validateCustomerForm(form) {
-  if (!form.name) return "Customer name is required";
-  if (form.name.length > 120) {
-    return "Customer name cannot exceed 120 characters";
+  const nameError = validateName(form.name, "Customer name");
+  if (nameError) return nameError;
+  const emailError = validateEmail(form.email);
+  if (emailError) return emailError;
+  const phoneError = validatePhone(form.phone);
+  if (phoneError) return phoneError;
+  if (form.city.length > CONTACT_LIMITS.city) {
+    return `City cannot exceed ${CONTACT_LIMITS.city} characters`;
   }
-  if (
-    form.email &&
-    (form.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-  ) {
-    return "Enter a valid email address";
-  }
-  if (form.phone) {
-    const digitCount = form.phone.replace(/\D/g, "").length;
-    if (
-      !/^\+?[\d\s().-]+$/.test(form.phone) ||
-      digitCount < 7 ||
-      digitCount > 15
-    ) {
-      return "Enter a valid phone number with 7 to 15 digits";
-    }
-  }
-  if (form.city.length > 100) return "City cannot exceed 100 characters";
   return "";
 }
 
@@ -297,7 +294,7 @@ function CustomersPage() {
                 setForm({ ...form, name: event.target.value })
               }
               placeholder="Acme Traders"
-              maxLength={120}
+              maxLength={CONTACT_LIMITS.name}
               autoFocus
             />
           </Field>
@@ -309,7 +306,7 @@ function CustomersPage() {
                 setForm({ ...form, email: event.target.value })
               }
               placeholder="billing@acme.in"
-              maxLength={254}
+              maxLength={CONTACT_LIMITS.email}
               autoComplete="email"
             />
           </Field>
@@ -323,7 +320,7 @@ function CustomersPage() {
               placeholder="+91 98765 43210"
               inputMode="tel"
               autoComplete="tel"
-              maxLength={30}
+              maxLength={CONTACT_LIMITS.phone}
             />
           </Field>
           <Field label="City">
@@ -333,7 +330,7 @@ function CustomersPage() {
                 setForm({ ...form, city: event.target.value })
               }
               placeholder="Mumbai"
-              maxLength={100}
+              maxLength={CONTACT_LIMITS.city}
               autoComplete="address-level2"
             />
           </Field>

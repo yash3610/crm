@@ -4,6 +4,13 @@ import { AuthPanel } from "@/components/auth/AuthLayout";
 import { Button, Input } from "@/components/common/Primitives";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import {
+  CONTACT_LIMITS,
+  normalizeEmail,
+  normalizeName,
+  validateEmail,
+  validateName,
+} from "@/lib/contactValidation";
 
 function RegisterPage() {
   const nav = useNavigate();
@@ -35,14 +42,21 @@ function RegisterPage() {
       <form
         onSubmit={async (e) => {
           e.preventDefault();
+          const payload = {
+            name: normalizeName(`${form.firstName} ${form.lastName}`),
+            company: normalizeName(form.company),
+            email: normalizeEmail(form.email),
+            password: form.password,
+          };
+          const nameError = validateName(payload.name, "Name");
+          if (nameError) return toast.error(nameError);
+          const companyError = validateName(payload.company, "Company");
+          if (companyError) return toast.error(companyError);
+          const emailError = validateEmail(payload.email, { required: true });
+          if (emailError) return toast.error(emailError);
           try {
             setLoading(true);
-            await register({
-              name: `${form.firstName} ${form.lastName}`.trim(),
-              company: form.company,
-              email: form.email,
-              password: form.password,
-            });
+            await register(payload);
             toast.success("Workspace created");
             nav("/");
           } catch (error) {
@@ -66,6 +80,7 @@ function RegisterPage() {
               onChange={(event) =>
                 setForm({ ...form, firstName: event.target.value })
               }
+              maxLength={60}
             />
           </label>
           <label className="block">
@@ -80,6 +95,7 @@ function RegisterPage() {
               onChange={(event) =>
                 setForm({ ...form, lastName: event.target.value })
               }
+              maxLength={60}
             />
           </label>
         </div>
@@ -95,6 +111,7 @@ function RegisterPage() {
             onChange={(event) =>
               setForm({ ...form, company: event.target.value })
             }
+            maxLength={CONTACT_LIMITS.name}
           />
         </label>
         <label className="block">
@@ -110,6 +127,7 @@ function RegisterPage() {
             onChange={(event) =>
               setForm({ ...form, email: event.target.value })
             }
+            maxLength={CONTACT_LIMITS.email}
           />
         </label>
         <label className="block">

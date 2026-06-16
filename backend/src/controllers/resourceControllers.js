@@ -12,6 +12,12 @@ import Invoice from "../models/Invoice.js";
 import { ApiError } from "../utils/ApiError.js";
 import { createCrudController } from "./crudController.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import {
+  CONTACT_LIMITS,
+  assertName,
+  assertPhone,
+  normalizeName,
+} from "../utils/contactValidation.js";
 import { createNotification } from "../utils/createNotification.js";
 import { generateCode } from "../utils/generateCode.js";
 
@@ -385,10 +391,7 @@ function validateCustomer(payload, { isUpdate = false } = {}) {
         digitCount < 7 ||
         digitCount > 15)
     ) {
-      throw new ApiError(
-        400,
-        "Enter a valid phone number with 7 to 15 digits",
-      );
+      throw new ApiError(400, "Enter a valid phone number with 7 to 15 digits");
     }
   }
 
@@ -397,6 +400,62 @@ function validateCustomer(payload, { isUpdate = false } = {}) {
       throw new ApiError(400, "Enter a valid city");
     }
     clean.city = clean.city.trim();
+    if (clean.city.length > CONTACT_LIMITS.city) {
+      throw new ApiError(
+        400,
+        `City cannot exceed ${CONTACT_LIMITS.city} characters`,
+      );
+    }
+  }
+
+  return clean;
+}
+
+function validateSupplier(payload, { isUpdate = false } = {}) {
+  const clean = { ...payload };
+
+  if (clean.name !== undefined) {
+    clean.name = assertName(clean.name, "Supplier name");
+  } else if (!isUpdate) {
+    throw new ApiError(400, "Supplier name is required");
+  }
+
+  if (clean.contact !== undefined) {
+    if (typeof clean.contact !== "string") {
+      throw new ApiError(400, "Enter a valid contact person");
+    }
+    clean.contact = normalizeName(clean.contact);
+    if (clean.contact.length > CONTACT_LIMITS.name) {
+      throw new ApiError(
+        400,
+        `Contact person cannot exceed ${CONTACT_LIMITS.name} characters`,
+      );
+    }
+  }
+
+  if (clean.phone !== undefined) {
+    clean.phone = assertPhone(clean.phone);
+  }
+
+  if (clean.city !== undefined) {
+    if (typeof clean.city !== "string") {
+      throw new ApiError(400, "Enter a valid city");
+    }
+    clean.city = clean.city.trim();
+    if (clean.city.length > CONTACT_LIMITS.city) {
+      throw new ApiError(
+        400,
+        `City cannot exceed ${CONTACT_LIMITS.city} characters`,
+      );
+    }
+  }
+
+  if (clean.payable !== undefined) {
+    const payable = Number(clean.payable);
+    if (!Number.isFinite(payable) || payable < 0) {
+      throw new ApiError(400, "Opening payable cannot be negative");
+    }
+    clean.payable = payable;
   }
 
   return clean;
@@ -496,6 +555,8 @@ export const supplierController = createCrudController({
   idField: "supplierId",
   prefix: "S",
   searchFields: ["name", "contact", "phone", "city"],
+  beforeCreate: (payload) => validateSupplier(payload),
+  beforeUpdate: (payload) => validateSupplier(payload, { isUpdate: true }),
 });
 
 export const productController = createCrudController({

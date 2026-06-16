@@ -3,6 +3,12 @@ import Tenant from "../models/Tenant.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
+  assertEmail,
+  assertName,
+  assertPhone,
+  normalizeName,
+} from "../utils/contactValidation.js";
+import {
   deleteUploadedFile,
   saveUploadedFile,
 } from "../utils/uploadStorage.js";
@@ -69,6 +75,47 @@ function hasExpectedFileSignature(data, mimeType) {
   return false;
 }
 
+function cleanContactSettings(
+  value,
+  { requireName = false, label = "Name" } = {},
+) {
+  const clean = { ...value };
+  if (clean.name !== undefined || requireName) {
+    clean.name = requireName
+      ? assertName(clean.name, label)
+      : normalizeName(clean.name);
+  }
+  if (clean.email !== undefined) {
+    clean.email = assertEmail(clean.email);
+  }
+  if (clean.phone !== undefined) {
+    clean.phone = assertPhone(clean.phone);
+  }
+  return clean;
+}
+
+function sanitizeSettingEntry(key, value) {
+  if (key === "account") {
+    return cleanContactSettings(value, { label: "Full name" });
+  }
+  if (key === "business" || key === "company") {
+    return cleanContactSettings(value, { label: "Business name" });
+  }
+  if (key === "caSharing") {
+    const clean = cleanContactSettings(value, {
+      requireName: Boolean(
+        value.enabled || value.name || value.phone || value.email,
+      ),
+      label: "CA name",
+    });
+    if ((clean.enabled || clean.name) && !clean.phone && !clean.email) {
+      throw new ApiError(400, "CA phone or email is required");
+    }
+    return clean;
+  }
+  return value;
+}
+
 export const getSettings = asyncHandler(async (req, res) => {
   const settings = await Setting.find({ tenantId: req.tenantId });
   const data = Object.fromEntries(
@@ -92,8 +139,13 @@ export const updateSettings = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid settings payload");
   }
 
+  const cleanEntries = entries.map(([key, value]) => [
+    key,
+    sanitizeSettingEntry(key, value),
+  ]);
+
   await Promise.all(
-    entries.map(([key, value]) =>
+    cleanEntries.map(([key, value]) =>
       Setting.findOneAndUpdate(
         { tenantId: req.tenantId, key },
         { tenantId: req.tenantId, value },
@@ -102,26 +154,28 @@ export const updateSettings = asyncHandler(async (req, res) => {
     ),
   );
 
-  if (req.body.company?.name) {
+  const cleanBody = Object.fromEntries(cleanEntries);
+
+  if (cleanBody.company?.name) {
     await Tenant.findByIdAndUpdate(req.tenantId, {
-      name: req.body.company.name,
+      name: cleanBody.company.name,
     });
   }
-  if (req.body.business?.name) {
+  if (cleanBody.business?.name) {
     await Tenant.findByIdAndUpdate(req.tenantId, {
-      name: req.body.business.name,
+      name: cleanBody.business.name,
     });
   }
   if (
-    req.body.pricing?.plan &&
-    ["starter", "growth", "premium"].includes(req.body.pricing.plan)
+    cleanBody.pricing?.plan &&
+    ["starter", "growth", "premium"].includes(cleanBody.pricing.plan)
   ) {
     await Tenant.findByIdAndUpdate(req.tenantId, {
-      plan: req.body.pricing.plan,
+      plan: cleanBody.pricing.plan,
     });
   }
 
-  res.json({ success: true, message: "Settings saved", data: req.body });
+  res.json({ success: true, message: "Settings saved", data: cleanBody });
 });
 
 export const uploadSettingFile = asyncHandler(async (req, res) => {
