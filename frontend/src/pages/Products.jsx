@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   PageHeader,
   Button,
@@ -8,12 +8,20 @@ import {
   Input,
   Select,
 } from "@/components/common/Primitives";
+import { CategoryPicker } from "@/components/common/CategoryPicker";
 import { DataTable } from "@/components/common/DataTable";
 import { products as seed, formatINR } from "@/data/mock";
 import { Plus, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useApiList } from "@/hooks/useApiList";
 import { downloadCsv } from "@/lib/downloadCsv";
+const DEFAULT_PRODUCT_CATEGORIES = [
+  "Widgets",
+  "Hardware",
+  "Packaging",
+  "Textiles",
+  "Consumables",
+];
 function ProductsPage() {
   const {
     rows,
@@ -29,19 +37,31 @@ function ProductsPage() {
   const [f, setF] = useState({
     name: "",
     sku: "",
-    category: "Widgets",
+    category: "",
     price: 0,
     stock: 0,
     unit: "pcs",
     gst: 18,
   });
+  const categoryOptions = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...DEFAULT_PRODUCT_CATEGORIES,
+          ...allRows.map((item) => item.category).filter(Boolean),
+        ]),
+      ].sort((a, b) => a.localeCompare(b)),
+    [allRows],
+  );
   const submit = async (e) => {
     e.preventDefault();
-    if (!f.name.trim() || !f.sku.trim())
-      return toast.error("Name and SKU are required");
+    const category = f.category.trim();
+    if (!f.name.trim() || !f.sku.trim() || !category)
+      return toast.error("Name, SKU and category are required");
     try {
       await create({
         ...f,
+        category,
         price: Number(f.price),
         stock: Number(f.stock),
         gst: Number(f.gst),
@@ -51,7 +71,7 @@ function ProductsPage() {
       setF({
         name: "",
         sku: "",
-        category: "Widgets",
+        category: "",
         price: 0,
         stock: 0,
         unit: "pcs",
@@ -182,20 +202,12 @@ function ProductsPage() {
             />
           </Field>
           <Field label="Category">
-            <Select
+            <CategoryPicker
               value={f.category}
-              onChange={(e) => setF({ ...f, category: e.target.value })}
-            >
-              {[
-                "Widgets",
-                "Hardware",
-                "Packaging",
-                "Textiles",
-                "Consumables",
-              ].map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </Select>
+              onChange={(category) => setF({ ...f, category })}
+              options={categoryOptions}
+              placeholder="Search or add category"
+            />
           </Field>
           <Field label="Unit">
             <Select

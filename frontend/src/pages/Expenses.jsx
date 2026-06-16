@@ -1,38 +1,67 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   PageHeader,
   Button,
   Modal,
   Field,
   Input,
-  Select,
 } from "@/components/common/Primitives";
+import { CategoryPicker } from "@/components/common/CategoryPicker";
 import { DataTable } from "@/components/common/DataTable";
 import { expenses as seed, formatINR } from "@/data/mock";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useApiList } from "@/hooks/useApiList";
+const DEFAULT_EXPENSE_CATEGORIES = [
+  "Rent",
+  "Utilities",
+  "Salaries",
+  "Marketing",
+  "Logistics",
+  "Travel",
+  "Office Supplies",
+  "Other",
+];
 function ExpensesPage() {
-  const { rows, loading, create, pagination, setPage, setPageSize, setSearch } =
-    useApiList("/expenses", seed, { paginated: true });
+  const {
+    rows,
+    allRows,
+    loading,
+    create,
+    pagination,
+    setPage,
+    setPageSize,
+    setSearch,
+  } = useApiList("/expenses", seed, { paginated: true });
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({
-    category: "Rent",
+    category: "",
     vendor: "",
     date: new Date().toISOString().slice(0, 10),
     amount: 0,
     note: "",
   });
+  const categoryOptions = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...DEFAULT_EXPENSE_CATEGORIES,
+          ...allRows.map((item) => item.category).filter(Boolean),
+        ]),
+      ].sort((a, b) => a.localeCompare(b)),
+    [allRows],
+  );
   const submit = async (e) => {
     e.preventDefault();
-    if (!f.vendor.trim() || !f.amount)
-      return toast.error("Vendor and amount are required");
+    const category = f.category.trim();
+    if (!category || !f.vendor.trim() || !f.amount)
+      return toast.error("Category, vendor and amount are required");
     try {
-      await create({ ...f, amount: Number(f.amount) });
+      await create({ ...f, category, amount: Number(f.amount) });
       toast.success("Expense recorded");
       setOpen(false);
       setF({
-        category: "Rent",
+        category: "",
         vendor: "",
         date: new Date().toISOString().slice(0, 10),
         amount: 0,
@@ -105,23 +134,12 @@ function ExpensesPage() {
           className="grid grid-cols-1 sm:grid-cols-2 gap-4"
         >
           <Field label="Category" required>
-            <Select
+            <CategoryPicker
               value={f.category}
-              onChange={(e) => setF({ ...f, category: e.target.value })}
-            >
-              {[
-                "Rent",
-                "Utilities",
-                "Salaries",
-                "Marketing",
-                "Logistics",
-                "Travel",
-                "Office Supplies",
-                "Other",
-              ].map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </Select>
+              onChange={(category) => setF({ ...f, category })}
+              options={categoryOptions}
+              placeholder="Search or add category"
+            />
           </Field>
           <Field label="Vendor" required>
             <Input

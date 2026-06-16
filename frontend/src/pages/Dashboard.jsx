@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer,
-  AreaChart,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -178,7 +179,7 @@ function Dashboard() {
           </div>
           <div className="h-72">
             <ResponsiveContainer>
-              <AreaChart
+              <ComposedChart
                 data={revenueExpenseTrend}
                 margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
               >
@@ -192,18 +193,6 @@ function Dashboard() {
                     <stop
                       offset="100%"
                       stopColor="var(--chart-1)"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                  <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="0%"
-                      stopColor="var(--chart-4)"
-                      stopOpacity={0.25}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor="var(--chart-4)"
                       stopOpacity={0}
                     />
                   </linearGradient>
@@ -236,6 +225,10 @@ function Dashboard() {
                     fontSize: 12,
                   }}
                 />
+                <Legend
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                />
                 <Area
                   type="monotone"
                   dataKey="sales"
@@ -244,15 +237,22 @@ function Dashboard() {
                   strokeWidth={2.5}
                   fill="url(#g1)"
                 />
-                <Area
+                <Line
                   type="monotone"
                   dataKey="expenses"
                   name="Expenses"
-                  stroke="var(--chart-4)"
-                  strokeWidth={2.5}
-                  fill="url(#g2)"
+                  stroke="#ef4444"
+                  strokeWidth={3}
+                  dot={{
+                    r: 3,
+                    fill: "#ef4444",
+                    stroke: "var(--card)",
+                    strokeWidth: 2,
+                  }}
+                  activeDot={{ r: 5 }}
+                  connectNulls
                 />
-              </AreaChart>
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </Card>
