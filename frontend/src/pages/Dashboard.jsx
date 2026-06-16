@@ -223,7 +223,10 @@ function Dashboard() {
                     border: "1px solid var(--border)",
                     borderRadius: 12,
                     fontSize: 12,
+                    color: "var(--popover-foreground)",
                   }}
+                  labelStyle={{ color: "var(--popover-foreground)" }}
+                  itemStyle={{ color: "var(--popover-foreground)" }}
                 />
                 <Legend
                   iconType="circle"
@@ -286,7 +289,10 @@ function Dashboard() {
                     border: "1px solid var(--border)",
                     borderRadius: 12,
                     fontSize: 12,
+                    color: "var(--popover-foreground)",
                   }}
+                  labelStyle={{ color: "var(--popover-foreground)" }}
+                  itemStyle={{ color: "var(--popover-foreground)" }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -371,13 +377,16 @@ function Dashboard() {
                   />
                   <YAxis hide />
                   <Tooltip
-                    contentStyle={{
-                      background: "var(--popover)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 12,
-                      fontSize: 12,
-                    }}
-                  />
+                  contentStyle={{
+                    background: "var(--popover)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                    color: "var(--popover-foreground)",
+                  }}
+                  labelStyle={{ color: "var(--popover-foreground)" }}
+                  itemStyle={{ color: "var(--popover-foreground)" }}
+                />
                   <Bar
                     dataKey="v"
                     fill="var(--chart-1)"

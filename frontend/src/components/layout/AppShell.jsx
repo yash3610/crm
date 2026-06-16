@@ -245,23 +245,32 @@ export function AppShell() {
       <aside className="hidden h-dvh w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
         <Brand />
         <NavList />
-        <div className="p-3 border-t border-sidebar-border">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2.5 rounded-lg p-2 text-left hover:bg-sidebar-accent/60"
-          >
+        <div className="border-t border-sidebar-border p-3">
+          <div className="flex w-full items-center gap-2.5 rounded-lg p-2">
             <div className="h-8 w-8 rounded-full bg-accent text-accent-foreground grid place-items-center text-xs font-semibold">
               {initials || "U"}
             </div>
-            <div className="flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate("/settings")}
+              className="min-w-0 flex-1 text-left"
+              title="Account settings"
+            >
               <div className="truncate text-sm font-medium">{user?.name}</div>
               <div className="text-[11px] text-muted-foreground truncate">
                 {user?.email}
               </div>
-            </div>
-            <LogOut className="h-4 w-4 text-muted-foreground" />
-          </button>
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-sidebar-accent/60 hover:text-destructive"
+              aria-label="Log out"
+              title="Log out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </aside>
 

@@ -10,8 +10,9 @@ import {
 } from "@/components/common/Primitives";
 import { CategoryPicker } from "@/components/common/CategoryPicker";
 import { DataTable } from "@/components/common/DataTable";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { products as seed, formatINR } from "@/data/mock";
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, Eye, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useApiList } from "@/hooks/useApiList";
 import { downloadCsv } from "@/lib/downloadCsv";
@@ -22,27 +23,48 @@ const DEFAULT_PRODUCT_CATEGORIES = [
   "Textiles",
   "Consumables",
 ];
+const emptyProductForm = {
+  name: "",
+  sku: "",
+  category: "",
+  price: 0,
+  stock: 0,
+  unit: "pcs",
+  gst: 18,
+};
+
+function productToForm(product) {
+  return {
+    name: product.name || "",
+    sku: product.sku || "",
+    category: product.category || "",
+    price: Number(product.price) || 0,
+    stock: Number(product.stock) || 0,
+    unit: product.unit || "pcs",
+    gst: Number(product.gst) || 0,
+  };
+}
+
 function ProductsPage() {
   const {
     rows,
     allRows,
     loading,
     create,
+    update,
+    remove,
     pagination,
     setPage,
     setPageSize,
     setSearch,
   } = useApiList("/products", seed, { paginated: true });
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({
-    name: "",
-    sku: "",
-    category: "",
-    price: 0,
-    stock: 0,
-    unit: "pcs",
-    gst: 18,
-  });
+  const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [f, setF] = useState(emptyProductForm);
   const categoryOptions = useMemo(
     () =>
       [
@@ -53,32 +75,62 @@ function ProductsPage() {
       ].sort((a, b) => a.localeCompare(b)),
     [allRows],
   );
+  const closeModal = () => {
+    setOpen(false);
+    setEditing(null);
+    setF(emptyProductForm);
+  };
+  const openAdd = () => {
+    setEditing(null);
+    setF(emptyProductForm);
+    setOpen(true);
+  };
+  const openEdit = (product) => {
+    setEditing(product);
+    setF(productToForm(product));
+    setOpen(true);
+  };
   const submit = async (e) => {
     e.preventDefault();
     const category = f.category.trim();
     if (!f.name.trim() || !f.sku.trim() || !category)
       return toast.error("Name, SKU and category are required");
+    const payload = {
+      ...f,
+      name: f.name.trim(),
+      sku: f.sku.trim().toUpperCase(),
+      category,
+      price: Number(f.price),
+      stock: Number(f.stock),
+      gst: Number(f.gst),
+    };
     try {
-      await create({
-        ...f,
-        category,
-        price: Number(f.price),
-        stock: Number(f.stock),
-        gst: Number(f.gst),
-      });
-      toast.success(`Product "${f.name}" added`);
-      setOpen(false);
-      setF({
-        name: "",
-        sku: "",
-        category: "",
-        price: 0,
-        stock: 0,
-        unit: "pcs",
-        gst: 18,
-      });
+      setSaving(true);
+      if (editing) {
+        await update(editing.id, payload);
+        toast.success(`Product "${payload.name}" updated`);
+      } else {
+        await create(payload);
+        toast.success(`Product "${payload.name}" added`);
+      }
+      closeModal();
     } catch (error) {
       toast.error(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    try {
+      setDeleteLoading(true);
+      await remove(deleting.id);
+      toast.success(`Product "${deleting.name}" deleted`);
+      setDeleting(null);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setDeleteLoading(false);
     }
   };
   const cols = [
@@ -138,6 +190,43 @@ function ProductsPage() {
         />
       ),
     },
+    {
+      key: "actions",
+      header: "Actions",
+      className: "text-right",
+      render: (product) => (
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setViewing(product)}
+            aria-label={`View ${product.name}`}
+            title="View product"
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openEdit(product)}
+            aria-label={`Edit ${product.name}`}
+            title="Edit product"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setDeleting(product)}
+            aria-label={`Delete ${product.name}`}
+            title="Delete product"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ),
+    },
   ];
   return (
     <>
@@ -152,7 +241,7 @@ function ProductsPage() {
             >
               <Download className="h-4 w-4" /> Export
             </Button>
-            <Button onClick={() => setOpen(true)}>
+            <Button onClick={openAdd}>
               <Plus className="h-4 w-4" /> Add product
             </Button>
           </>
@@ -170,16 +259,24 @@ function ProductsPage() {
       />
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
-        title="Add product"
-        description="Add a new item to your catalog"
+        onClose={closeModal}
+        title={editing ? "Edit product" : "Add product"}
+        description={
+          editing ? "Update product details" : "Add a new item to your catalog"
+        }
         size="lg"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
+            <Button variant="ghost" onClick={closeModal} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={submit}>Save product</Button>
+            <Button onClick={submit} disabled={saving}>
+              {saving
+                ? "Saving..."
+                : editing
+                  ? "Update product"
+                  : "Save product"}
+            </Button>
           </>
         }
       >
@@ -192,6 +289,7 @@ function ProductsPage() {
               value={f.name}
               onChange={(e) => setF({ ...f, name: e.target.value })}
               placeholder="Premium Widget"
+              autoFocus
             />
           </Field>
           <Field label="SKU" required>
@@ -247,6 +345,65 @@ function ProductsPage() {
           </Field>
         </form>
       </Modal>
+
+      <Modal
+        open={Boolean(viewing)}
+        onClose={() => setViewing(null)}
+        title="Product details"
+        description={viewing?.name}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setViewing(null)}>
+              Close
+            </Button>
+            {viewing && (
+              <Button
+                onClick={() => {
+                  const product = viewing;
+                  setViewing(null);
+                  openEdit(product);
+                }}
+              >
+                <Pencil className="h-4 w-4" /> Edit product
+              </Button>
+            )}
+          </>
+        }
+      >
+        {viewing && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {[
+              ["SKU", viewing.sku],
+              ["Category", viewing.category],
+              ["Unit", viewing.unit],
+              ["GST", `${Number(viewing.gst) || 0}%`],
+              ["Price", formatINR(viewing.price)],
+              ["Stock", `${viewing.stock} ${viewing.unit}`],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-border p-3">
+                <div className="text-xs text-muted-foreground">{label}</div>
+                <div className="mt-1 font-medium">{value || "-"}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !deleteLoading) setDeleting(null);
+        }}
+        title="Delete product?"
+        description={
+          deleting
+            ? `${deleting.name} will be permanently deleted from your catalog.`
+            : ""
+        }
+        confirmLabel="Delete product"
+        loading={deleteLoading}
+        onConfirm={confirmDelete}
+      />
     </>
   );
 }
