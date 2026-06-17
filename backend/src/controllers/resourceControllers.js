@@ -6,6 +6,7 @@ import Payment from "../models/Payment.js";
 import Product from "../models/Product.js";
 import Purchase from "../models/Purchase.js";
 import Quotation from "../models/Quotation.js";
+import Sequence from "../models/Sequence.js";
 import StockMovement from "../models/StockMovement.js";
 import Supplier from "../models/Supplier.js";
 import Invoice from "../models/Invoice.js";
@@ -170,6 +171,69 @@ function withPurchaseStatus(item) {
   return { ...item, status: overdue ? "overdue" : item.status };
 }
 
+function getPurchaseSequenceKey(year) {
+  return `purchase-number-${year}`;
+}
+
+function formatPurchaseNumber(year, value) {
+  return `PUR-${year}-${String(value).padStart(6, "0")}`;
+}
+
+async function getExistingPurchaseMaximum(tenantId, year) {
+  const numberPattern = new RegExp(`^PUR-${year}-(\\d+)$`);
+  const purchases = await Purchase.find({
+    tenantId,
+    number: { $regex: numberPattern },
+  })
+    .select("number")
+    .lean();
+
+  return purchases.reduce((maximum, purchase) => {
+    const match = purchase.number.match(numberPattern);
+    return Math.max(maximum, Number.parseInt(match?.[1], 10) || 0);
+  }, 0);
+}
+
+async function ensurePurchaseSequence(tenantId, year) {
+  const key = getPurchaseSequenceKey(year);
+  let sequence = await Sequence.findOne({ tenantId, key });
+  if (sequence) return sequence;
+
+  const existingMaximum = await getExistingPurchaseMaximum(tenantId, year);
+  try {
+    sequence = await Sequence.create({
+      tenantId,
+      key,
+      value: existingMaximum,
+    });
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    sequence = await Sequence.findOne({ tenantId, key });
+  }
+  return sequence;
+}
+
+async function reserveNextPurchaseNumber(tenantId) {
+  const year = new Date().getFullYear();
+  const key = getPurchaseSequenceKey(year);
+  await ensurePurchaseSequence(tenantId, year);
+  const sequence = await Sequence.findOneAndUpdate(
+    { tenantId, key },
+    { $inc: { value: 1 } },
+    { new: true },
+  );
+  return formatPurchaseNumber(year, sequence.value);
+}
+
+export const getNextPurchaseNumber = asyncHandler(async (req, res) => {
+  const year = new Date().getFullYear();
+  const sequence = await ensurePurchaseSequence(req.tenantId, year);
+  res.json({
+    success: true,
+    data: { number: formatPurchaseNumber(year, sequence.value + 1) },
+  });
+});
+
 async function validatePurchaseOwnership(payload, req) {
   const isUpdate = Boolean(req.params?.id);
   if (payload.supplierRef) {
@@ -238,6 +302,7 @@ async function validatePurchaseOwnership(payload, req) {
   }
 
   if (!isUpdate) {
+    payload.number = await reserveNextPurchaseNumber(req.tenantId);
     payload.status = "pending";
     payload.paidAmount = 0;
     payload.payments = [];

@@ -21,6 +21,7 @@ import {
   paymentController,
   productController,
   purchaseController,
+  getNextPurchaseNumber,
   recordPurchasePayment,
   quotationController,
   supplierController,
@@ -79,6 +80,7 @@ router.use(
     deleteRoles: ["Owner", "Admin"],
   }),
 );
+router.get("/purchases/next-number", getNextPurchaseNumber);
 router.post(
   "/purchases/:id/pay",
   allowRoles("Owner", "Admin", "Accountant"),

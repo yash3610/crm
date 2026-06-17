@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -34,9 +34,9 @@ function NewPurchase() {
   const { rows: suppliers } = useApiList("/suppliers", supplierSeed);
   const { rows: products } = useApiList("/products", productSeed);
   const [saving, setSaving] = useState(false);
-  const [supplierId, setSupplierId] = useState(supplierSeed[0]?.id || "");
-  const [number] = useState(
-    `PUR-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
+  const [supplierId, setSupplierId] = useState("");
+  const [number, setNumber] = useState(
+    `PUR-${new Date().getFullYear()}-000001`,
   );
   const [supplierBillNumber, setSupplierBillNumber] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -45,10 +45,28 @@ function NewPurchase() {
   );
   const status = "pending";
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState([makeLine(productSeed[0])]);
+  const [lines, setLines] = useState([makeLine()]);
 
-  const selectedSupplier =
-    suppliers.find((supplier) => supplier.id === supplierId) || suppliers[0];
+  const selectedSupplier = suppliers.find(
+    (supplier) => supplier.id === supplierId,
+  );
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get("/purchases/next-number")
+      .then((data) => {
+        if (active) setNumber(data.number);
+      })
+      .catch(() => {
+        if (active) {
+          setNumber(`PUR-${new Date().getFullYear()}-000001`);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const updateLine = (id, patch) => {
     setLines((current) =>
@@ -56,8 +74,7 @@ function NewPurchase() {
     );
   };
 
-  const addLine = () =>
-    setLines((current) => [...current, makeLine(products[0])]);
+  const addLine = () => setLines((current) => [...current, makeLine()]);
 
   const removeLine = (id) => {
     setLines((current) =>
@@ -98,7 +115,7 @@ function NewPurchase() {
 
     setSaving(true);
     try {
-      await api.post("/purchases", {
+      const purchase = await api.post("/purchases", {
         number,
         supplierRef: selectedSupplier.mongoId,
         supplier: selectedSupplier.name,
@@ -119,7 +136,7 @@ function NewPurchase() {
           };
         }),
       });
-      toast.success(`Purchase bill ${number} saved`);
+      toast.success(`Purchase bill ${purchase.number || number} saved`);
       navigate("/purchases");
     } catch (error) {
       toast.error(error.message);
@@ -153,13 +170,17 @@ function NewPurchase() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label>
                 <span className="text-xs font-medium text-muted-foreground">
-                  Supplier
+                  Supplier *
                 </span>
                 <Select
                   className="mt-1.5 w-full"
-                  value={selectedSupplier?.id || ""}
+                  value={supplierId}
                   onChange={(event) => setSupplierId(event.target.value)}
+                  required
                 >
+                  <option value="" disabled>
+                    Select supplier
+                  </option>
                   {suppliers.map((supplier) => (
                     <option key={supplier.id} value={supplier.id}>
                       {supplier.name}
@@ -228,7 +249,7 @@ function NewPurchase() {
               <table className="w-full min-w-[760px] text-sm">
                 <thead className="text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="py-2 text-left font-medium">Product</th>
+                    <th className="py-2 text-left font-medium">Product *</th>
                     <th className="w-20 py-2 font-medium">Qty</th>
                     <th className="w-28 py-2 font-medium">Purchase rate</th>
                     <th className="w-20 py-2 font-medium">GST %</th>
@@ -248,6 +269,7 @@ function NewPurchase() {
                           <Select
                             className="w-full"
                             value={line.productId}
+                            required
                             onChange={(event) => {
                               const product = products.find(
                                 (item) => item.id === event.target.value,
@@ -259,6 +281,9 @@ function NewPurchase() {
                               });
                             }}
                           >
+                            <option value="" disabled>
+                              Select product
+                            </option>
                             {products.map((product) => (
                               <option key={product.id} value={product.id}>
                                 {product.name}
