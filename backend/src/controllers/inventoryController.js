@@ -1,4 +1,6 @@
+import Invoice from "../models/Invoice.js";
 import Product from "../models/Product.js";
+import Purchase from "../models/Purchase.js";
 import StockMovement from "../models/StockMovement.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -12,10 +14,12 @@ function normalizeProduct(product) {
   return item;
 }
 
-function normalizeMovement(movement) {
+function normalizeMovement(movement, sourceStatusByKey = new Map()) {
   const item = movement.toJSON();
   item.mongoId = item.id;
   item.id = item.movementId;
+  const sourceKey = `${item.sourceType}:${String(item.sourceId || "")}`;
+  item.sourceStatus = sourceStatusByKey.get(sourceKey) || null;
   return item;
 }
 
@@ -24,14 +28,41 @@ export const getInventory = asyncHandler(async (req, res) => {
     Product.find({ tenantId: req.tenantId }).sort("name"),
     StockMovement.find({ tenantId: req.tenantId })
       .sort("-createdAt")
-      .limit(100),
+      .limit(10),
+  ]);
+  const invoiceIds = movements
+    .filter((movement) => movement.sourceType === "invoice" && movement.sourceId)
+    .map((movement) => movement.sourceId);
+  const purchaseIds = movements
+    .filter((movement) => movement.sourceType === "purchase" && movement.sourceId)
+    .map((movement) => movement.sourceId);
+  const [invoices, purchases] = await Promise.all([
+    invoiceIds.length
+      ? Invoice.find({ tenantId: req.tenantId, _id: { $in: invoiceIds } })
+          .select("status")
+          .lean()
+      : [],
+    purchaseIds.length
+      ? Purchase.find({ tenantId: req.tenantId, _id: { $in: purchaseIds } })
+          .select("status")
+          .lean()
+      : [],
+  ]);
+  const sourceStatusByKey = new Map([
+    ...invoices.map((invoice) => [`invoice:${String(invoice._id)}`, invoice.status]),
+    ...purchases.map((purchase) => [
+      `purchase:${String(purchase._id)}`,
+      purchase.status,
+    ]),
   ]);
 
   res.json({
     success: true,
     data: {
       products: products.map(normalizeProduct),
-      movements: movements.map(normalizeMovement),
+      movements: movements.map((movement) =>
+        normalizeMovement(movement, sourceStatusByKey),
+      ),
     },
   });
 });

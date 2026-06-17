@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   PageHeader,
+  Badge,
   Card,
   StatusBadge,
   Button,
@@ -61,7 +62,7 @@ function InventoryPage() {
       .then((data) => {
         setItems(data.products);
         setMoves(
-          data.movements.map((movement) => ({
+          data.movements.slice(0, 10).map((movement) => ({
             ...movement,
             name: movement.productName,
             date: movement.createdAt,
@@ -97,14 +98,16 @@ function InventoryPage() {
           product.id === target.id ? data.product : product,
         ),
       );
-      setMoves((current) => [
-        {
-          ...data.movement,
-          name: data.movement.productName,
-          date: data.movement.createdAt,
-        },
-        ...current,
-      ]);
+      setMoves((current) =>
+        [
+          {
+            ...data.movement,
+            name: data.movement.productName,
+            date: data.movement.createdAt,
+          },
+          ...current,
+        ].slice(0, 10),
+      );
       toast.success(
         `${f.type === "in" ? "Added" : "Removed"} ${f.qty} ${target.unit} of ${target.name}`,
       );
@@ -241,7 +244,7 @@ function InventoryPage() {
               <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-3 py-2">Date</th>
                 <th className="px-3 py-2">Product</th>
-                <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2 text-right">Qty</th>
                 <th className="px-3 py-2">Reason</th>
               </tr>
@@ -260,9 +263,13 @@ function InventoryPage() {
                     <div className="text-xs text-muted-foreground">{m.sku}</div>
                   </td>
                   <td className="px-3 py-2.5">
-                    <StatusBadge
-                      status={m.type === "in" ? "paid" : "pending"}
-                    />
+                    {m.sourceStatus ? (
+                      <StatusBadge status={m.sourceStatus} />
+                    ) : (
+                      <Badge tone={m.type === "in" ? "success" : "warning"}>
+                        {m.type === "in" ? "Stock in" : "Stock out"}
+                      </Badge>
+                    )}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums font-medium">
                     {m.type === "in" ? "+" : "-"}
