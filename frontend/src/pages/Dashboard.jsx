@@ -40,6 +40,7 @@ import {
   formatINR,
 } from "@/data/mock";
 import { api } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { DashboardSkeleton } from "@/components/common/LoadingSkeletons";
 const CHART_COLORS = [
@@ -56,7 +57,19 @@ const TREND_RANGES = {
   "1y": "1 Year",
   overall: "Overall",
 };
+function getGreeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function getFirstName(name) {
+  return name?.trim().split(/\s+/)[0] || "there";
+}
+
 function Dashboard() {
+  const { user } = useAuth();
   const [dashboard, setDashboard] = useState({
     summary: {
       revenue: 2118000,
@@ -98,10 +111,11 @@ function Dashboard() {
 
   const recent = dashboard.recentInvoices;
   const revenueExpenseTrend = dashboard.revenueExpenseTrend || [];
+  const greeting = `${getGreeting()}, ${getFirstName(user?.name)}`;
   return (
     <>
       <PageHeader
-        title="Good morning, Rahul"
+        title={greeting}
         subtitle="Here's how your business is doing today."
         actions={
           <>
