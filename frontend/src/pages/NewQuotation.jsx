@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -34,9 +34,9 @@ function NewQuotation() {
   const { rows: customers } = useApiList("/customers", customerSeed);
   const { rows: products } = useApiList("/products", productSeed);
   const [saving, setSaving] = useState(false);
-  const [customerId, setCustomerId] = useState(customerSeed[0]?.id || "");
-  const [number] = useState(
-    `QUO-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
+  const [customerId, setCustomerId] = useState("");
+  const [number, setNumber] = useState(
+    `QUO-${new Date().getFullYear()}-000001`,
   );
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [validTill, setValidTill] = useState(
@@ -47,16 +47,31 @@ function NewQuotation() {
   const [terms, setTerms] = useState(
     "Prices are valid until the quotation expiry date.",
   );
-  const [lines, setLines] = useState([makeLine(productSeed[0])]);
+  const [lines, setLines] = useState([makeLine()]);
 
-  const customer =
-    customers.find((item) => item.id === customerId) || customers[0];
+  const customer = customers.find((item) => item.id === customerId);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get("/quotations/next-number")
+      .then((data) => {
+        if (active) setNumber(data.number);
+      })
+      .catch(() => {
+        if (active) {
+          setNumber(`QUO-${new Date().getFullYear()}-000001`);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const updateLine = (id, patch) =>
     setLines((current) =>
       current.map((line) => (line.id === id ? { ...line, ...patch } : line)),
     );
-  const addLine = () =>
-    setLines((current) => [...current, makeLine(products[0])]);
+  const addLine = () => setLines((current) => [...current, makeLine()]);
   const removeLine = (id) =>
     setLines((current) =>
       current.length === 1 ? current : current.filter((line) => line.id !== id),
@@ -111,7 +126,7 @@ function NewQuotation() {
           };
         }),
       });
-      toast.success(`Quotation ${number} created`);
+      toast.success(`Quotation ${quotation.number || number} created`);
       navigate(`/quotations/${quotation.id}`);
     } catch (error) {
       toast.error(error.message);
@@ -145,13 +160,17 @@ function NewQuotation() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label>
                 <span className="text-xs font-medium text-muted-foreground">
-                  Customer
+                  Customer *
                 </span>
                 <Select
                   className="mt-1.5 w-full"
-                  value={customer?.id || ""}
+                  value={customerId}
                   onChange={(event) => setCustomerId(event.target.value)}
+                  required
                 >
+                  <option value="" disabled>
+                    Select customer
+                  </option>
                   {customers.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -216,7 +235,7 @@ function NewQuotation() {
               <table className="w-full min-w-[760px] text-sm">
                 <thead className="text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="py-2 text-left font-medium">Item name</th>
+                    <th className="py-2 text-left font-medium">Item name *</th>
                     <th className="w-20 py-2 font-medium">Qty</th>
                     <th className="w-28 py-2 font-medium">Rate</th>
                     <th className="w-20 py-2 font-medium">GST %</th>
@@ -236,6 +255,7 @@ function NewQuotation() {
                           <Select
                             className="w-full"
                             value={line.productId}
+                            required
                             onChange={(event) => {
                               const product = products.find(
                                 (item) => item.id === event.target.value,
@@ -247,6 +267,9 @@ function NewQuotation() {
                               });
                             }}
                           >
+                            <option value="" disabled>
+                              Select item
+                            </option>
                             {products.map((product) => (
                               <option key={product.id} value={product.id}>
                                 {product.name}

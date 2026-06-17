@@ -22,6 +22,7 @@ import {
   productController,
   purchaseController,
   getNextPurchaseNumber,
+  getNextQuotationNumber,
   recordPurchasePayment,
   quotationController,
   supplierController,
@@ -73,6 +74,7 @@ router.use(
     writeRoles: ["Owner", "Admin", "Accountant"],
   }),
 );
+router.get("/quotations/next-number", getNextQuotationNumber);
 router.use(
   "/quotations",
   createCrudRouter(quotationController, {

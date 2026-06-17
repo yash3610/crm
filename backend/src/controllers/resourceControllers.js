@@ -117,6 +117,69 @@ function withQuotationStatus(item) {
   return { ...item, status: expired ? "expired" : item.status };
 }
 
+function getQuotationSequenceKey(year) {
+  return `quotation-number-${year}`;
+}
+
+function formatQuotationNumber(year, value) {
+  return `QUO-${year}-${String(value).padStart(6, "0")}`;
+}
+
+async function getExistingQuotationMaximum(tenantId, year) {
+  const numberPattern = new RegExp(`^QUO-${year}-(\\d+)$`);
+  const quotations = await Quotation.find({
+    tenantId,
+    number: { $regex: numberPattern },
+  })
+    .select("number")
+    .lean();
+
+  return quotations.reduce((maximum, quotation) => {
+    const match = quotation.number.match(numberPattern);
+    return Math.max(maximum, Number.parseInt(match?.[1], 10) || 0);
+  }, 0);
+}
+
+async function ensureQuotationSequence(tenantId, year) {
+  const key = getQuotationSequenceKey(year);
+  let sequence = await Sequence.findOne({ tenantId, key });
+  if (sequence) return sequence;
+
+  const existingMaximum = await getExistingQuotationMaximum(tenantId, year);
+  try {
+    sequence = await Sequence.create({
+      tenantId,
+      key,
+      value: existingMaximum,
+    });
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    sequence = await Sequence.findOne({ tenantId, key });
+  }
+  return sequence;
+}
+
+async function reserveNextQuotationNumber(tenantId) {
+  const year = new Date().getFullYear();
+  const key = getQuotationSequenceKey(year);
+  await ensureQuotationSequence(tenantId, year);
+  const sequence = await Sequence.findOneAndUpdate(
+    { tenantId, key },
+    { $inc: { value: 1 } },
+    { new: true },
+  );
+  return formatQuotationNumber(year, sequence.value);
+}
+
+export const getNextQuotationNumber = asyncHandler(async (req, res) => {
+  const year = new Date().getFullYear();
+  const sequence = await ensureQuotationSequence(req.tenantId, year);
+  res.json({
+    success: true,
+    data: { number: formatQuotationNumber(year, sequence.value + 1) },
+  });
+});
+
 async function validateQuotation(payload, req) {
   const isUpdate = Boolean(req.params?.id);
   if (payload.customerRef) {
@@ -159,6 +222,9 @@ async function validateQuotation(payload, req) {
     if (count !== new Set(productIds.map(String)).size) {
       throw new ApiError(400, "One or more products are invalid");
     }
+  }
+  if (!isUpdate) {
+    payload.number = await reserveNextQuotationNumber(req.tenantId);
   }
   return calculateQuotation(payload);
 }

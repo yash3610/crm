@@ -1,5 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { Download, Eye, Plus } from "lucide-react";
+import { useState } from "react";
+import { Download, Eye, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   Button,
@@ -7,6 +9,7 @@ import {
   Select,
   StatusBadge,
 } from "@/components/common/Primitives";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DataTable } from "@/components/common/DataTable";
 import { formatINR } from "@/data/mock";
 import { useApiList } from "@/hooks/useApiList";
@@ -42,7 +45,25 @@ function QuotationsPage() {
     setPageSize,
     setSearch,
     setFilters,
+    remove,
   } = useApiList("/quotations", seed, { paginated: true });
+  const [deleting, setDeleting] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const deleteQuotation = async () => {
+    if (!deleting) return;
+    try {
+      setDeleteLoading(true);
+      await remove(deleting.id);
+      toast.success(`Quotation ${deleting.number} deleted`);
+      setDeleting(null);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const columns = [
     {
       key: "number",
@@ -100,13 +121,18 @@ function QuotationsPage() {
       header: "",
       className: "text-right",
       render: (row) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/quotations/${row.id}`)}
-        >
-          <Eye className="h-4 w-4" /> View
-        </Button>
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(`/quotations/${row.id}`)}
+          >
+            <Eye className="h-4 w-4" /> View
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setDeleting(row)}>
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+        </div>
       ),
     },
   ];
@@ -151,6 +177,21 @@ function QuotationsPage() {
             <option value="expired">Expired</option>
           </Select>
         }
+      />
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(open) => {
+          if (!open && !deleteLoading) setDeleting(null);
+        }}
+        title="Delete quotation?"
+        description={
+          deleting
+            ? `${deleting.number} for ${deleting.customer} will be permanently deleted.`
+            : ""
+        }
+        confirmLabel="Yes, delete quotation"
+        loading={deleteLoading}
+        onConfirm={deleteQuotation}
       />
     </>
   );
