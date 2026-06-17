@@ -22,6 +22,18 @@ import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
 import { useApiList } from "@/hooks/useApiList";
 import { api } from "@/lib/api";
 import { printDocument } from "@/lib/printDocument";
+
+function makeRow(product) {
+  return {
+    id: crypto.randomUUID(),
+    productId: product?.id || "",
+    qty: 1,
+    price: Number(product?.price) || 0,
+    gst: Number(product?.gst) || 0,
+    discount: 0,
+  };
+}
+
 function CreateInvoice() {
   const navigate = useNavigate();
   const { rows: customers, loading: customersLoading } =
@@ -60,67 +72,37 @@ function CreateInvoice() {
       showSignature: true,
     },
   });
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState([makeRow()]);
   const update = (id, patch) =>
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-  const remove = (id) => setRows((rs) => rs.filter((r) => r.id !== id));
+  const remove = (id) =>
+    setRows((rs) => (rs.length === 1 ? rs : rs.filter((r) => r.id !== id)));
   const addRow = () => {
-    const p = products[0];
-    if (!p) {
-      toast.error("Add a product before creating an invoice");
-      return;
-    }
-    setRows((rs) => [
-      ...rs,
-      {
-        id: crypto.randomUUID(),
-        productId: p.id,
-        qty: 1,
-        price: p.price,
-        gst: p.gst,
-        discount: 0,
-      },
-    ]);
+    setRows((rs) => [...rs, makeRow()]);
   };
 
   useEffect(() => {
     setCustomer((current) => {
       if (customers.some((item) => item.id === current)) return current;
-      return customers[0]?.id || "";
+      return "";
     });
   }, [customers]);
 
   useEffect(() => {
-    if (!products.length) {
-      setRows([]);
-      return;
-    }
-
     setRows((current) => {
       if (!current.length) {
-        const product = products[0];
-        return [
-          {
-            id: crypto.randomUUID(),
-            productId: product.id,
-            qty: 1,
-            price: product.price,
-            gst: product.gst,
-            discount: 0,
-          },
-        ];
+        return [makeRow()];
       }
 
       return current.map((row) => {
         if (products.some((product) => product.id === row.productId)) {
           return row;
         }
-        const product = products[0];
         return {
           ...row,
-          productId: product.id,
-          price: product.price,
-          gst: product.gst,
+          productId: "",
+          price: 0,
+          gst: 0,
         };
       });
     });
@@ -165,7 +147,12 @@ function CreateInvoice() {
     return { subtotal, discount, tax, total: subtotal - discount + tax };
   }, [rows]);
   const cust = customers.find((c) => c.id === customer);
-  const canUseInvoice = Boolean(cust && rows.length && products.length);
+  const hasInvalidRows = rows.some(
+    (row) => !row.productId || Number(row.qty) <= 0 || Number(row.price) < 0,
+  );
+  const canUseInvoice = Boolean(
+    cust && rows.length && products.length && !hasInvalidRows,
+  );
   const businessName =
     documentSettings.business.displayName ||
     documentSettings.business.name ||
@@ -217,6 +204,10 @@ function CreateInvoice() {
     }
     if (!rows.length) {
       toast.error("Add at least one invoice item");
+      return;
+    }
+    if (hasInvalidRows) {
+      toast.error("Complete all invoice item details");
       return;
     }
 
@@ -307,14 +298,20 @@ function CreateInvoice() {
             <div className="grid sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Customer
+                  Customer *
                 </label>
                 <Select
                   className="mt-1 w-full"
                   value={customer}
                   onChange={(e) => setCustomer(e.target.value)}
                   disabled={customersLoading || !customers.length}
+                  required
                 >
+                  {customers.length > 0 && (
+                    <option value="" disabled>
+                      Select customer
+                    </option>
+                  )}
                   {!customers.length && (
                     <option value="">
                       {customersLoading
@@ -413,7 +410,7 @@ function CreateInvoice() {
               <table className="w-full text-sm min-w-[720px]">
                 <thead className="text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="text-left py-2 font-medium">Product</th>
+                    <th className="text-left py-2 font-medium">Product *</th>
                     <th className="py-2 font-medium w-20">Qty</th>
                     <th className="py-2 font-medium w-28">Price</th>
                     <th className="py-2 font-medium w-20">GST %</th>
@@ -436,6 +433,7 @@ function CreateInvoice() {
                           <Select
                             className="w-full"
                             value={r.productId}
+                            required
                             onChange={(e) => {
                               const p = products.find(
                                 (p) => p.id === e.target.value,
@@ -448,6 +446,9 @@ function CreateInvoice() {
                               });
                             }}
                           >
+                            <option value="" disabled>
+                              Select product
+                            </option>
                             {products.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.name}
@@ -502,7 +503,9 @@ function CreateInvoice() {
                         <td className="py-2 text-right">
                           <button
                             onClick={() => remove(r.id)}
+                            disabled={rows.length === 1}
                             className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                            type="button"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
