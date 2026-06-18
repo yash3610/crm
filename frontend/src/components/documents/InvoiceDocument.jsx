@@ -66,18 +66,18 @@ export function InvoiceDocument({
         className,
       )}
     >
-      <header>
+      <header className="invoice-header">
         <div
           className={cn(
-            "text-center font-extrabold leading-none tracking-tight text-black",
+            "invoice-title text-center font-extrabold leading-none tracking-tight text-black",
             compact ? "text-xl" : "text-2xl sm:text-4xl",
           )}
         >
           TAX INVOICE
         </div>
 
-        <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-          <div className="flex min-w-0 items-start gap-3 sm:gap-5">
+        <div className="invoice-identity mt-6 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="invoice-business flex min-w-0 items-start gap-3 sm:gap-5">
             {settings.showLogo !== false && (
               <div
                 className={cn(
@@ -99,7 +99,7 @@ export function InvoiceDocument({
               </div>
             )}
 
-            <div className="min-w-0 break-words">
+            <div className="invoice-business-details min-w-0 break-words">
               <h1
                 className={cn(
                   "break-words font-bold leading-tight",
@@ -127,7 +127,7 @@ export function InvoiceDocument({
             </div>
           </div>
 
-          <div className="min-w-0 rounded-xl bg-slate-50 p-3 sm:shrink-0 sm:text-right">
+          <div className="invoice-meta min-w-0 rounded-xl bg-slate-50 p-3 sm:shrink-0 sm:text-right">
             <div className="space-y-1 text-slate-500">
               <div>
                 Invoice No:{" "}
@@ -153,14 +153,17 @@ export function InvoiceDocument({
         </div>
 
         <div
-          className={cn("mt-8 w-full", compact ? "h-1" : "h-[5px]")}
+          className={cn(
+            "invoice-divider mt-8 w-full",
+            compact ? "h-1" : "h-[5px]",
+          )}
           style={{ backgroundColor: accent }}
         />
       </header>
 
       <section
         className={cn(
-          "grid gap-6",
+          "invoice-party-grid grid gap-6",
           compact ? "mt-5" : "mt-9",
           settings.showPaymentDetails !== false
             ? compact
@@ -234,7 +237,7 @@ export function InvoiceDocument({
 
       <div
         className={cn(
-          "max-w-full overflow-x-auto overscroll-x-contain",
+          "invoice-items max-w-full overflow-x-auto overscroll-x-contain",
           compact ? "mt-5" : "mt-9",
         )}
       >
@@ -319,10 +322,15 @@ export function InvoiceDocument({
         </table>
       </div>
 
-      <section className={cn("flex justify-end", compact ? "mt-5" : "mt-9")}>
+      <section
+        className={cn(
+          "invoice-totals flex justify-end",
+          compact ? "mt-5" : "mt-9",
+        )}
+      >
         <div
           className={cn(
-            "w-full rounded-2xl border border-slate-200 bg-slate-50",
+            "invoice-totals-card w-full rounded-2xl border border-slate-200 bg-slate-50",
             compact ? "max-w-[220px] p-3" : "max-w-[330px] p-5",
           )}
         >

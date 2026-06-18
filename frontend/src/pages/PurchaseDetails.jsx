@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Download,
+  LoaderCircle,
   Mail,
   MessageCircle,
   Printer,
@@ -17,6 +18,7 @@ import {
 } from "@/components/common/Primitives";
 import { DetailPageSkeleton } from "@/components/common/LoadingSkeletons";
 import { formatINR } from "@/data/mock";
+import { usePdfDownload } from "@/hooks/usePdfDownload";
 import { api } from "@/lib/api";
 import { printDocument } from "@/lib/printDocument";
 
@@ -29,6 +31,7 @@ function PurchaseDetails() {
   const { id } = useParams();
   const [purchase, setPurchase] = useState(null);
   const [business, setBusiness] = useState({});
+  const { pdfDownloading, startPdfDownload } = usePdfDownload();
 
   useEffect(() => {
     Promise.all([api.get(`/purchases/${id}`), api.get("/settings")])
@@ -117,9 +120,17 @@ function PurchaseDetails() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => printDocument(`${purchase.number}-purchase-bill`)}
+              onClick={() =>
+                startPdfDownload(`${purchase.number}-purchase-bill`)
+              }
+              disabled={pdfDownloading}
             >
-              <Download className="h-4 w-4" /> PDF
+              {pdfDownloading ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {pdfDownloading ? "Preparing..." : "PDF"}
             </Button>
             <Button variant="outline" onClick={shareWhatsApp}>
               <MessageCircle className="h-4 w-4" /> WhatsApp

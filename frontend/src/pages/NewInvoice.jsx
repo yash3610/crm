@@ -14,12 +14,14 @@ import {
   Save,
   Printer,
   Download,
+  LoaderCircle,
   Share2,
   Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
 import { useApiList } from "@/hooks/useApiList";
+import { usePdfDownload } from "@/hooks/usePdfDownload";
 import { api } from "@/lib/api";
 import { printDocument } from "@/lib/printDocument";
 
@@ -36,6 +38,7 @@ function makeRow(product) {
 
 function CreateInvoice() {
   const navigate = useNavigate();
+  const { pdfDownloading, startPdfDownload } = usePdfDownload();
   const { rows: customers, loading: customersLoading } =
     useApiList("/customers");
   const { rows: products, loading: productsLoading } = useApiList("/products");
@@ -262,10 +265,15 @@ function CreateInvoice() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => printDocument(`${number}-invoice`)}
-              disabled={!canUseInvoice}
+              onClick={() => startPdfDownload(`${number}-invoice`)}
+              disabled={!canUseInvoice || pdfDownloading}
             >
-              <Download className="h-4 w-4" /> PDF
+              {pdfDownloading ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {pdfDownloading ? "Preparing..." : "PDF"}
             </Button>
             <Button
               variant="outline"

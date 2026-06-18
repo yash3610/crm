@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Download, Printer, Send, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  LoaderCircle,
+  Printer,
+  Send,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -14,6 +21,7 @@ import { DetailPageSkeleton } from "@/components/common/LoadingSkeletons";
 import { InvoiceDocument } from "@/components/documents/InvoiceDocument";
 import { useAuth } from "@/context/AuthContext";
 import { formatINR, invoices } from "@/data/mock";
+import { usePdfDownload } from "@/hooks/usePdfDownload";
 import { api } from "@/lib/api";
 import { printDocument } from "@/lib/printDocument";
 
@@ -63,6 +71,7 @@ function InvoiceDetail() {
   const [deletingPayment, setDeletingPayment] = useState("");
   const [paymentToDelete, setPaymentToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { pdfDownloading, startPdfDownload } = usePdfDownload();
 
   useEffect(() => {
     Promise.all([
@@ -167,9 +176,15 @@ function InvoiceDetail() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => printDocument(`${inv.number}-invoice`)}
+              onClick={() => startPdfDownload(`${inv.number}-invoice`)}
+              disabled={pdfDownloading}
             >
-              <Download className="h-4 w-4" /> PDF
+              {pdfDownloading ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {pdfDownloading ? "Preparing..." : "PDF"}
             </Button>
             <Button
               onClick={() => {

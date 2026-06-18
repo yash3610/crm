@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Download,
+  LoaderCircle,
   Mail,
   MessageCircle,
   Printer,
@@ -18,6 +19,7 @@ import {
 } from "@/components/common/Primitives";
 import { DetailPageSkeleton } from "@/components/common/LoadingSkeletons";
 import { formatINR } from "@/data/mock";
+import { usePdfDownload } from "@/hooks/usePdfDownload";
 import { api } from "@/lib/api";
 import { printDocument } from "@/lib/printDocument";
 
@@ -36,6 +38,7 @@ function QuotationDetails() {
   const { id } = useParams();
   const [quotation, setQuotation] = useState(null);
   const [business, setBusiness] = useState({});
+  const { pdfDownloading, startPdfDownload } = usePdfDownload();
 
   useEffect(() => {
     Promise.all([api.get(`/quotations/${id}`), api.get("/settings")])
@@ -129,9 +132,15 @@ function QuotationDetails() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => printDocument(`${quotation.number}-quotation`)}
+              onClick={() => startPdfDownload(`${quotation.number}-quotation`)}
+              disabled={pdfDownloading}
             >
-              <Download className="h-4 w-4" /> PDF
+              {pdfDownloading ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {pdfDownloading ? "Preparing..." : "PDF"}
             </Button>
             <Button
               variant="outline"

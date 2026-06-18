@@ -32,6 +32,7 @@ import {
   uploadSettingFile,
   updateSettings,
 } from "../controllers/settingsController.js";
+import { generatePdf } from "../controllers/pdfController.js";
 import { userController } from "../controllers/userController.js";
 import { allowRoles, protect } from "../middleware/authMiddleware.js";
 import { createCrudRouter } from "./crudRoutes.js";
@@ -40,6 +41,7 @@ const router = Router();
 
 router.use(protect);
 router.get("/dashboard", getDashboard);
+router.post("/pdf", generatePdf);
 router.use(
   "/customers",
   createCrudRouter(customerController, {
