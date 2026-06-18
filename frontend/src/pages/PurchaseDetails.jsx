@@ -143,9 +143,9 @@ function PurchaseDetails() {
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
-        <Card className="print-document overflow-hidden border-t-4 border-t-primary p-8">
-          <div className="mb-8 flex items-start justify-between gap-6">
-            <div>
+        <Card className="print-document business-document overflow-hidden border-t-4 border-t-primary p-8">
+          <div className="document-header mb-8 flex items-start justify-between gap-6">
+            <div className="document-heading">
               <div className="text-xs font-semibold uppercase tracking-wider text-primary">
                 Purchase Bill
               </div>
@@ -156,7 +156,7 @@ function PurchaseDetails() {
                 <StatusBadge status={purchase.status} />
               </div>
             </div>
-            <div className="text-right text-sm">
+            <div className="document-business text-right text-sm">
               <div className="font-semibold">
                 {business.name || "Your Business"}
               </div>
@@ -174,7 +174,7 @@ function PurchaseDetails() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 border-b border-border pb-6 sm:grid-cols-4">
+          <div className="document-meta grid grid-cols-1 gap-6 border-b border-border pb-6 sm:grid-cols-4">
             <div>
               <div className="mb-1 text-xs uppercase text-muted-foreground">
                 Supplier
@@ -203,7 +203,7 @@ function PurchaseDetails() {
             </div>
           </div>
 
-          <table className="mt-6 w-full text-sm">
+          <table className="document-items mt-6 w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-muted-foreground">
                 <th className="py-2 font-medium">Item</th>
@@ -250,7 +250,7 @@ function PurchaseDetails() {
             </tbody>
           </table>
 
-          <div className="mt-8 ml-auto w-full max-w-xs space-y-2 text-sm">
+          <div className="document-totals mt-8 ml-auto w-full max-w-xs space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Taxable amount</span>
               <span>{formatINR(totals.subtotal)}</span>
@@ -274,7 +274,7 @@ function PurchaseDetails() {
           </div>
 
           {purchase.notes && (
-            <div className="mt-10 border-t border-border pt-6 text-sm">
+            <div className="document-notes mt-10 border-t border-border pt-6 text-sm">
               <div className="mb-1 font-semibold">Notes</div>
               <div className="whitespace-pre-wrap text-muted-foreground">
                 {purchase.notes}

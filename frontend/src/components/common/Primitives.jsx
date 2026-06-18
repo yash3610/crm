@@ -1,6 +1,19 @@
-import { useEffect } from "react";
-import { X } from "lucide-react";
+import { Children, isValidElement, useEffect, useState } from "react";
+import { CalendarDays, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select as SelectRoot,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 export function Modal({
   open,
   onClose,
@@ -57,9 +70,11 @@ export function Modal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="p-5 overflow-y-auto flex-1">{children}</div>
+        <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-5">
+          {children}
+        </div>
         {footer && (
-          <div className="p-4 border-t border-border bg-muted/30 rounded-b-2xl flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2 rounded-b-2xl border-t border-border bg-muted/30 p-4">
             {footer}
           </div>
         )}
@@ -81,7 +96,7 @@ export function Field({ label, children, hint, required }) {
 }
 export function PageHeader({ title, subtitle, actions }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-6 mb-6">
+    <div className="mb-6 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:gap-6">
       <div className="flex-1 min-w-0">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {title}
@@ -91,7 +106,9 @@ export function PageHeader({ title, subtitle, actions }) {
         )}
       </div>
       {actions && (
-        <div className="flex items-center gap-2 flex-wrap">{actions}</div>
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
+          {actions}
+        </div>
       )}
     </div>
   );
@@ -100,7 +117,7 @@ export function Card({ className, children }) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-card text-card-foreground shadow-card",
+        "min-w-0 rounded-xl border border-border bg-card text-card-foreground shadow-card",
         className,
       )}
     >
@@ -182,27 +199,190 @@ export function Button({
   );
 }
 export function Input({ className, ...props }) {
+  if (props.type === "date") {
+    return <DateInput className={className} {...props} />;
+  }
+
   return (
     <input
       className={cn(
-        "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15",
+        "h-9 w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15",
         className,
       )}
       {...props}
     />
   );
 }
-export function Select({ className, children, ...props }) {
+
+function parseDate(value) {
+  if (!value) return undefined;
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+  return new Date(year, month - 1, day);
+}
+
+function formatDateValue(date) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function displayDate(value) {
+  const date = parseDate(value);
+  if (!date) return "Select date";
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function DateInput({
+  type: _type,
+  className,
+  value,
+  defaultValue,
+  onChange,
+  name,
+  disabled,
+  min,
+  max,
+  required,
+  ...props
+}) {
+  void _type;
+  const controlled = value !== undefined;
+  const [internalValue, setInternalValue] = useState(defaultValue || "");
+  const [open, setOpen] = useState(false);
+  const currentValue = controlled ? value : internalValue;
+
+  const selectDate = (date) => {
+    if (!date) return;
+    const nextValue = formatDateValue(date);
+    if (!controlled) setInternalValue(nextValue);
+    onChange?.({
+      target: { value: nextValue, name },
+      currentTarget: { value: nextValue, name },
+    });
+    setOpen(false);
+  };
+
   return (
-    <select
-      className={cn(
-        "h-9 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15",
-        className,
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            disabled={disabled}
+            className={cn(
+              "flex h-9 w-full min-w-0 max-w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 text-left text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:pointer-events-none disabled:opacity-50",
+              !currentValue && "text-muted-foreground",
+              className,
+            )}
+            {...props}
+          >
+            <span className="min-w-0 truncate">
+              {displayDate(currentValue)}
+            </span>
+            <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          sideOffset={6}
+          collisionPadding={8}
+          className="w-[min(19rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-1"
+        >
+          <Calendar
+            mode="single"
+            selected={parseDate(currentValue)}
+            defaultMonth={parseDate(currentValue) || new Date()}
+            onSelect={selectDate}
+            disabled={[
+              ...(parseDate(min) ? [{ before: parseDate(min) }] : []),
+              ...(parseDate(max) ? [{ after: parseDate(max) }] : []),
+            ]}
+            className="w-full p-2 [--cell-size:2rem]"
+          />
+        </PopoverContent>
+      </Popover>
+      {name && (
+        <input
+          type="hidden"
+          name={name}
+          value={currentValue || ""}
+          required={required}
+        />
       )}
-      {...props}
+    </>
+  );
+}
+export function Select({
+  className,
+  children,
+  value,
+  defaultValue,
+  onChange,
+  disabled,
+  name,
+  required,
+  ...props
+}) {
+  const options = Children.toArray(children)
+    .filter(isValidElement)
+    .map((option) => ({
+      value: String(option.props.value ?? option.props.children ?? ""),
+      label: option.props.children,
+      disabled: Boolean(option.props.disabled),
+    }));
+  const placeholder = options.find((option) => option.value === "");
+  const selectableOptions = options.filter((option) => option.value !== "");
+
+  return (
+    <SelectRoot
+      value={value === undefined ? undefined : String(value)}
+      defaultValue={
+        defaultValue === undefined ? undefined : String(defaultValue)
+      }
+      onValueChange={(nextValue) =>
+        onChange?.({
+          target: { value: nextValue, name },
+          currentTarget: { value: nextValue, name },
+        })
+      }
+      disabled={disabled}
+      name={name}
+      required={required}
     >
-      {children}
-    </select>
+      <SelectTrigger
+        className={cn(
+          "w-full min-w-0 rounded-lg bg-background text-left focus:border-primary focus:ring-2 focus:ring-primary/15",
+          className,
+        )}
+        {...props}
+      >
+        <SelectValue placeholder={placeholder?.label || "Select"} />
+      </SelectTrigger>
+      <SelectContent
+        position="popper"
+        sideOffset={4}
+        collisionPadding={12}
+        className="max-h-[min(18rem,50vh)] max-w-[calc(100vw-24px)]"
+      >
+        {selectableOptions.map((option) => (
+          <SelectItem
+            key={option.value}
+            value={option.value}
+            disabled={option.disabled}
+            className="min-h-9 whitespace-normal break-words"
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </SelectRoot>
   );
 }
 export function EmptyState({ title, body, icon }) {

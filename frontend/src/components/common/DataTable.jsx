@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select } from "@/components/common/Primitives";
 import { cn } from "@/lib/utils";
 export function DataTable({
   rows,
@@ -153,7 +154,7 @@ export function DataTable({
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between px-4 py-3 border-t border-border text-xs text-muted-foreground">
+      <div className="flex flex-col gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         {loading ? (
           <Skeleton className="h-4 w-32" />
         ) : (
@@ -166,10 +167,10 @@ export function DataTable({
         )}
         <div className="flex items-center gap-2">
           {serverSide && onPageSizeChange && (
-            <select
+            <Select
               value={effectivePageSize}
               onChange={(event) => onPageSizeChange(Number(event.target.value))}
-              className="h-8 rounded-md border border-border bg-background px-2"
+              className="h-8 w-[92px] px-2"
               aria-label="Rows per page"
             >
               {[8, 10, 20, 50].map((size) => (
@@ -177,7 +178,7 @@ export function DataTable({
                   {size} / page
                 </option>
               ))}
-            </select>
+            </Select>
           )}
           <button
             onClick={() =>

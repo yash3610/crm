@@ -170,9 +170,9 @@ function QuotationDetails() {
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_300px]">
-        <Card className="print-document overflow-hidden border-t-4 border-t-primary p-8">
-          <div className="mb-8 flex items-start justify-between">
-            <div>
+        <Card className="print-document business-document overflow-hidden border-t-4 border-t-primary p-8">
+          <div className="document-header mb-8 flex items-start justify-between">
+            <div className="document-heading">
               <div className="text-xs font-semibold uppercase tracking-wider text-primary">
                 Quotation
               </div>
@@ -183,7 +183,7 @@ function QuotationDetails() {
                 <StatusBadge status={badgeStatus(quotation.status)} />
               </div>
             </div>
-            <div className="text-right text-sm">
+            <div className="document-business text-right text-sm">
               <div className="font-semibold">
                 {business.name || "Your Business"}
               </div>
@@ -193,7 +193,7 @@ function QuotationDetails() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-6 border-b border-border pb-6">
+          <div className="document-meta grid grid-cols-1 gap-4 border-b border-border pb-6 sm:grid-cols-3 sm:gap-6">
             <div>
               <div className="text-xs uppercase text-muted-foreground">
                 Quotation for
@@ -218,7 +218,7 @@ function QuotationDetails() {
             </div>
           </div>
 
-          <table className="mt-6 w-full text-sm">
+          <table className="document-items mt-6 w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-muted-foreground">
                 <th className="py-2">Item name</th>
@@ -264,7 +264,7 @@ function QuotationDetails() {
             </tbody>
           </table>
 
-          <div className="mt-8 ml-auto w-full max-w-xs space-y-2 text-sm">
+          <div className="document-totals mt-8 ml-auto w-full max-w-xs space-y-2 text-sm">
             <div className="flex justify-between">
               <span>Taxable amount</span>
               <span>{formatINR(totals.subtotal)}</span>
@@ -280,7 +280,7 @@ function QuotationDetails() {
           </div>
 
           {(quotation.notes || quotation.terms) && (
-            <div className="mt-10 grid gap-6 border-t border-border pt-6 text-sm sm:grid-cols-2">
+            <div className="document-notes mt-10 grid gap-6 border-t border-border pt-6 text-sm sm:grid-cols-2">
               <div>
                 <div className="mb-1 font-semibold">Notes</div>
                 <div className="whitespace-pre-wrap text-muted-foreground">

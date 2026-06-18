@@ -296,7 +296,7 @@ function PurchasesPage() {
       >
         <form onSubmit={submitPayment} className="space-y-4">
           {selectedBill && (
-            <div className="grid grid-cols-3 gap-3 rounded-xl bg-muted/50 p-4 text-sm">
+            <div className="grid grid-cols-1 gap-3 rounded-xl bg-muted/50 p-4 text-sm sm:grid-cols-3">
               <div>
                 <div className="text-xs text-muted-foreground">Bill total</div>
                 <div className="mt-1 font-semibold">

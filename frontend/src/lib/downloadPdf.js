@@ -45,6 +45,79 @@ function inlineComputedStyles(element) {
   });
 }
 
+function normalizeBusinessDocument(documentElement) {
+  if (!documentElement.classList.contains("business-document")) return;
+
+  Object.assign(documentElement.style, {
+    display: "block",
+    width: `${PDF_WIDTH_PX}px`,
+    maxWidth: "none",
+    minHeight: `${PDF_HEIGHT_PX}px`,
+    margin: "0",
+    padding: "48px",
+    overflow: "visible",
+    background: "#ffffff",
+  });
+
+  const header = documentElement.querySelector(".document-header");
+  if (header) {
+    Object.assign(header.style, {
+      display: "grid",
+      gridTemplateColumns: "minmax(0, 1fr) 280px",
+      alignItems: "start",
+      gap: "40px",
+      marginBottom: "32px",
+    });
+  }
+
+  const business = documentElement.querySelector(".document-business");
+  if (business) {
+    Object.assign(business.style, {
+      width: "280px",
+      maxWidth: "280px",
+      textAlign: "right",
+      overflowWrap: "anywhere",
+      lineHeight: "1.5",
+    });
+  }
+
+  const meta = documentElement.querySelector(".document-meta");
+  if (meta) {
+    const columns = Math.max(1, meta.children.length);
+    Object.assign(meta.style, {
+      display: "grid",
+      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+      gap: "24px",
+      paddingBottom: "24px",
+    });
+  }
+
+  const table = documentElement.querySelector(".document-items");
+  if (table) {
+    Object.assign(table.style, {
+      width: "100%",
+      minWidth: "0",
+      tableLayout: "auto",
+      marginTop: "24px",
+    });
+  }
+
+  const totals = documentElement.querySelector(".document-totals");
+  if (totals) {
+    Object.assign(totals.style, {
+      width: "320px",
+      maxWidth: "320px",
+      marginTop: "32px",
+      marginLeft: "auto",
+    });
+  }
+
+  documentElement.querySelectorAll("th, td").forEach((cell) => {
+    cell.style.padding = "12px 8px";
+    cell.style.verticalAlign = "middle";
+  });
+}
+
 async function createPdfHtml(source) {
   const host = document.createElement("div");
   host.setAttribute("aria-hidden", "true");
@@ -101,6 +174,8 @@ async function createPdfHtml(source) {
     await new Promise((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(resolve)),
     );
+    normalizeBusinessDocument(documentElement);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
     inlineComputedStyles(documentElement);
 
     return `<!doctype html>
@@ -119,7 +194,8 @@ async function createPdfHtml(source) {
       }
       *, *::before, *::after { box-sizing: border-box; }
       tr, .print-avoid-break, .invoice-totals, .invoice-payment-history,
-      .invoice-footer { break-inside: avoid; page-break-inside: avoid; }
+      .invoice-footer, .document-header, .document-meta, .document-totals,
+      .document-notes { break-inside: avoid; page-break-inside: avoid; }
     </style>
   </head>
   <body>${documentElement.outerHTML}</body>
