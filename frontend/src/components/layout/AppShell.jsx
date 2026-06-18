@@ -21,6 +21,7 @@ import {
   Moon,
   Sun,
   ChevronDown,
+  X,
   LogOut,
   Sparkles,
 } from "lucide-react";
@@ -31,10 +32,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 const nav = [
   {
     label: "Overview",
+    icon: LayoutDashboard,
     items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
     label: "Sales",
+    icon: Receipt,
     items: [
       { to: "/invoices", label: "Invoices", icon: FileText },
       { to: "/invoices/new", label: "Create Invoice", icon: FilePlus2 },
@@ -44,6 +47,7 @@ const nav = [
   },
   {
     label: "Purchasing",
+    icon: Wallet,
     items: [
       { to: "/suppliers", label: "Suppliers", icon: Truck },
       { to: "/purchases", label: "Purchases", icon: Wallet },
@@ -57,6 +61,7 @@ const nav = [
   },
   {
     label: "Catalog",
+    icon: Package,
     items: [
       { to: "/customers", label: "Customers", icon: Users },
       { to: "/products", label: "Products", icon: Package },
@@ -65,6 +70,7 @@ const nav = [
   },
   {
     label: "Insights",
+    icon: TrendingUp,
     items: [
       { to: "/reports", label: "Reports", icon: TrendingUp },
       { to: "/accounting", label: "Accounting", icon: Calculator },
@@ -72,6 +78,7 @@ const nav = [
   },
   {
     label: "Admin",
+    icon: Shield,
     items: [
       { to: "/users", label: "Users & Roles", icon: Shield },
       { to: "/notifications", label: "Notifications", icon: Bell },
@@ -96,9 +103,9 @@ function useDark() {
   };
   return { dark, toggle };
 }
-function NavList({ onNavigate }) {
-  const { pathname } = useLocation();
-  const activePath = nav
+
+function getActivePath(pathname) {
+  return nav
     .flatMap((section) => section.items)
     .map((item) => item.to)
     .filter((to) =>
@@ -107,62 +114,129 @@ function NavList({ onNavigate }) {
         : pathname === to || pathname.startsWith(`${to}/`),
     )
     .sort((first, second) => second.length - first.length)[0];
+}
+
+function NavList({ onNavigate }) {
+  const { pathname } = useLocation();
+  const activePath = getActivePath(pathname);
+  const activeSection = nav.find((section) =>
+    section.items.some((item) => item.to === activePath),
+  )?.label;
+  const [openSections, setOpenSections] = useState(() => ({
+    [activeSection]: true,
+  }));
+
+  useEffect(() => {
+    if (!activeSection) return;
+    setOpenSections((current) => ({
+      ...current,
+      [activeSection]: true,
+    }));
+  }, [activeSection]);
+
+  const toggleSection = (label) => {
+    setOpenSections((current) => ({
+      ...current,
+      [label]: !current[label],
+    }));
+  };
+
   return (
-    <nav className="scrollbar-hidden flex-1 space-y-6 overflow-y-auto px-3 py-4">
-      {nav.map((sec) => (
-        <div key={sec.label}>
-          <div className="px-2 mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {sec.label}
+    <nav className="scrollbar-hidden flex-1 space-y-2 overflow-y-auto px-3 py-4">
+      {nav.map((section) => {
+        const isOpen = openSections[section.label];
+        const containsActiveItem = section.label === activeSection;
+
+        return (
+          <div
+            key={section.label}
+            className="overflow-hidden rounded-xl border border-transparent"
+          >
+            <button
+              type="button"
+              onClick={() => toggleSection(section.label)}
+              className={cn(
+                "flex w-full items-center rounded-lg px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors",
+                containsActiveItem
+                  ? "bg-sidebar-accent/70 text-primary"
+                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+              )}
+              aria-expanded={isOpen}
+              aria-controls={`nav-${section.label.toLowerCase()}`}
+            >
+              <span className="flex-1">{section.label}</span>
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform duration-200",
+                  isOpen && "rotate-180",
+                )}
+              />
+            </button>
+            {isOpen && (
+              <ul
+                id={`nav-${section.label.toLowerCase()}`}
+                className="mt-1 space-y-1 pb-1"
+              >
+                {section.items.map((it) => {
+                  const active = activePath === it.to;
+                  const Icon = it.icon;
+                  return (
+                    <li key={it.to}>
+                      <Link
+                        to={it.to}
+                        onClick={onNavigate}
+                        className={cn(
+                          "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-primary/10 text-primary"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                        )}
+                      >
+                        <Icon
+                          className={cn(
+                            "h-4 w-4",
+                            active
+                              ? "text-primary"
+                              : "text-muted-foreground group-hover:text-foreground",
+                          )}
+                        />
+                        <span>{it.label}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
-          <ul className="space-y-0.5">
-            {sec.items.map((it) => {
-              const active = activePath === it.to;
-              const Icon = it.icon;
-              return (
-                <li key={it.to}>
-                  <Link
-                    to={it.to}
-                    onClick={onNavigate}
-                    className={cn(
-                      "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-4 w-4",
-                        active
-                          ? "text-primary"
-                          : "text-muted-foreground group-hover:text-foreground",
-                      )}
-                    />
-                    <span>{it.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }
-function Brand() {
+
+function Brand({ mobile = false, onClose }) {
   return (
-    <Link
-      to="/"
-      className="flex items-center gap-2 px-4 h-16 border-b border-sidebar-border"
-    >
-      <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground grid place-items-center shadow-soft">
-        <Sparkles className="h-4 w-4" />
-      </div>
-      <div className="leading-tight">
-        <div className="font-semibold text-foreground">BillPro</div>
-        <div className="text-[11px] text-muted-foreground">ERP Suite</div>
-      </div>
-    </Link>
+    <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
+      <Link to="/" className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
+          <Sparkles className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 leading-tight">
+          <div className="font-semibold text-foreground">BillPro</div>
+          <div className="text-[11px] text-muted-foreground">ERP Suite</div>
+        </div>
+      </Link>
+      {mobile && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          aria-label="Close menu"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
   );
 }
 export function AppShell() {
@@ -242,7 +316,7 @@ export function AppShell() {
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
       {/* Sidebar - desktop */}
-      <aside className="hidden h-dvh w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
+      <aside className="hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
         <Brand />
         <NavList />
         <div className="border-t border-sidebar-border p-3">
@@ -278,11 +352,11 @@ export function AppShell() {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="absolute inset-0 bg-foreground/40"
+            className="absolute inset-0 bg-foreground/40 backdrop-blur-[2px]"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative w-72 h-full flex flex-col bg-sidebar border-r border-sidebar-border">
-            <Brand />
+          <aside className="relative flex h-full w-[min(19rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar shadow-2xl">
+            <Brand mobile onClose={() => setMobileOpen(false)} />
             <NavList onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
