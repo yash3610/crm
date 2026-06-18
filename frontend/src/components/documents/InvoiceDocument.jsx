@@ -62,18 +62,27 @@ export function InvoiceDocument({
         "invoice-document mx-auto flex w-full flex-col bg-white text-slate-800",
         compact
           ? "min-h-[620px] max-w-[340px] p-5 text-[9px]"
-          : "min-h-[900px] max-w-[900px] p-10 text-sm sm:p-12",
+          : "min-h-[900px] max-w-[900px] p-4 text-[11px] sm:p-8 sm:text-sm lg:p-12",
         className,
       )}
     >
       <header>
-        <div className="flex items-start justify-between gap-6">
-          <div className="flex min-w-0 items-start gap-5">
+        <div
+          className={cn(
+            "text-center font-extrabold leading-none tracking-tight text-black",
+            compact ? "text-xl" : "text-2xl sm:text-4xl",
+          )}
+        >
+          TAX INVOICE
+        </div>
+
+        <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="flex min-w-0 items-start gap-3 sm:gap-5">
             {settings.showLogo !== false && (
               <div
                 className={cn(
                   "grid shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white",
-                  compact ? "h-12 w-12" : "h-20 w-20",
+                  compact ? "h-12 w-12" : "h-14 w-14 sm:h-20 sm:w-20",
                 )}
               >
                 {business.logo ? (
@@ -90,11 +99,11 @@ export function InvoiceDocument({
               </div>
             )}
 
-            <div className="min-w-0">
+            <div className="min-w-0 break-words">
               <h1
                 className={cn(
-                  "font-bold leading-tight",
-                  compact ? "text-base" : "text-3xl",
+                  "break-words font-bold leading-tight",
+                  compact ? "text-base" : "text-xl sm:text-3xl",
                 )}
                 style={{ color: accent }}
               >
@@ -118,16 +127,8 @@ export function InvoiceDocument({
             </div>
           </div>
 
-          <div className="shrink-0 text-right">
-            <div
-              className={cn(
-                "font-extrabold leading-none tracking-tight text-black",
-                compact ? "text-xl" : "text-4xl",
-              )}
-            >
-              TAX INVOICE
-            </div>
-            <div className="mt-3 space-y-1 text-slate-500">
+          <div className="min-w-0 rounded-xl bg-slate-50 p-3 sm:shrink-0 sm:text-right">
+            <div className="space-y-1 text-slate-500">
               <div>
                 Invoice No:{" "}
                 <span className="text-slate-700">
@@ -164,7 +165,7 @@ export function InvoiceDocument({
           settings.showPaymentDetails !== false
             ? compact
               ? "grid-cols-1"
-              : "grid-cols-2"
+              : "grid-cols-1 sm:grid-cols-2"
             : "grid-cols-1",
         )}
       >
@@ -231,8 +232,15 @@ export function InvoiceDocument({
         )}
       </section>
 
-      <div className={cn("overflow-x-auto", compact ? "mt-5" : "mt-9")}>
-        <table className="w-full border-collapse">
+      <div
+        className={cn(
+          "max-w-full overflow-x-auto overscroll-x-contain",
+          compact ? "mt-5" : "mt-9",
+        )}
+      >
+        <table
+          className={cn("w-full border-collapse", !compact && "min-w-[680px]")}
+        >
           <thead>
             <tr
               className="text-left font-bold text-white"
@@ -420,7 +428,9 @@ export function InvoiceDocument({
       <footer
         className={cn(
           "invoice-footer print-avoid-break mt-auto grid items-end gap-10 pt-12",
-          showSignature && !compact ? "grid-cols-[1fr_260px]" : "grid-cols-1",
+          showSignature && !compact
+            ? "grid-cols-1 sm:grid-cols-[1fr_260px]"
+            : "grid-cols-1",
         )}
       >
         <div>

@@ -642,7 +642,13 @@ function SettingsPage() {
             })}
           </nav>
 
-          <main className="min-w-0 flex-1 overflow-y-auto bg-background">
+          <main
+            className={cn(
+              "min-w-0 flex-1 overflow-y-auto bg-background",
+              (activeTab === "invoice" || activeTab === "print") &&
+                "xl:overflow-hidden",
+            )}
+          >
             {activeTab === "account" && (
               <>
                 <SectionHeader
@@ -1042,21 +1048,21 @@ function SettingsPage() {
             )}
 
             {activeTab === "invoice" && (
-              <>
+              <div className="xl:flex xl:h-full xl:min-h-0 xl:flex-col">
                 <SectionHeader
                   title="Invoice settings"
                   subtitle="Choose the invoice appearance and visible information"
                   onSave={() => save()}
                   saving={saving}
                 />
-                <div className="grid bg-muted/20 xl:grid-cols-[minmax(0,1fr)_380px]">
-                  <div className="max-h-[760px] overflow-auto p-6">
+                <div className="grid bg-muted/20 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_380px]">
+                  <div className="max-h-[760px] overflow-x-hidden overflow-y-auto p-3 sm:p-6 xl:max-h-none xl:min-h-0">
                     <InvoicePreview
                       business={settings.business}
                       invoice={section}
                     />
                   </div>
-                  <div className="space-y-5 border-t border-border bg-card p-5 xl:border-l xl:border-t-0">
+                  <div className="space-y-5 border-t border-border bg-card p-5 xl:min-h-0 xl:overflow-y-auto xl:border-l xl:border-t-0">
                     <div>
                       <h3 className="font-semibold">Invoice layout</h3>
                       <div className="mt-3 flex items-center gap-3 rounded-lg border border-primary bg-primary/5 p-3 text-primary">
@@ -1124,19 +1130,19 @@ function SettingsPage() {
                     </SettingField>
                   </div>
                 </div>
-              </>
+              </div>
             )}
 
             {activeTab === "print" && (
-              <>
+              <div className="xl:flex xl:h-full xl:min-h-0 xl:flex-col">
                 <SectionHeader
                   title="Print settings"
                   subtitle="Configure A4 and thermal invoice printing"
                   onSave={() => save()}
                   saving={saving}
                 />
-                <div className="grid bg-muted/20 xl:grid-cols-[minmax(0,1fr)_380px]">
-                  <div className="max-h-[760px] overflow-auto p-6">
+                <div className="grid bg-muted/20 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_380px]">
+                  <div className="max-h-[760px] overflow-x-hidden overflow-y-auto p-3 sm:p-6 xl:max-h-none xl:min-h-0">
                     <InvoicePreview
                       business={settings.business}
                       invoice={{
@@ -1150,7 +1156,7 @@ function SettingsPage() {
                       compact={section.mode === "thermal"}
                     />
                   </div>
-                  <div className="space-y-4 border-t border-border bg-card p-5 xl:border-l xl:border-t-0">
+                  <div className="space-y-4 border-t border-border bg-card p-5 xl:min-h-0 xl:overflow-y-auto xl:border-l xl:border-t-0">
                     <div className="grid grid-cols-2 gap-2">
                       {[
                         ["a4", "A4 Invoice"],
@@ -1212,7 +1218,7 @@ function SettingsPage() {
                     </div>
                   </div>
                 </div>
-              </>
+              </div>
             )}
 
             {activeTab === "users" && (
