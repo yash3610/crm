@@ -26,6 +26,7 @@ const DEFAULT_PRODUCT_CATEGORIES = [
 const emptyProductForm = {
   name: "",
   sku: "",
+  hsn: "",
   category: "",
   price: 0,
   stock: 0,
@@ -37,6 +38,7 @@ function productToForm(product) {
   return {
     name: product.name || "",
     sku: product.sku || "",
+    hsn: product.hsn || "",
     category: product.category || "",
     price: Number(product.price) || 0,
     stock: Number(product.stock) || 0,
@@ -99,6 +101,7 @@ function ProductsPage() {
       ...f,
       name: f.name.trim(),
       sku: f.sku.trim().toUpperCase(),
+      hsn: f.hsn.trim().toUpperCase(),
       category,
       price: Number(f.price),
       stock: Number(f.stock),
@@ -149,6 +152,13 @@ function ProductsPage() {
       header: "Category",
       render: (r) => (
         <span className="text-muted-foreground">{r.category}</span>
+      ),
+    },
+    {
+      key: "hsn",
+      header: "HSN/SAC",
+      render: (r) => (
+        <span className="text-muted-foreground">{r.hsn || "-"}</span>
       ),
     },
     {
@@ -250,7 +260,7 @@ function ProductsPage() {
       <DataTable
         rows={rows}
         columns={cols}
-        searchKeys={["name", "sku", "category"]}
+        searchKeys={["name", "sku", "hsn", "category"]}
         pagination={pagination}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
@@ -297,6 +307,15 @@ function ProductsPage() {
               value={f.sku}
               onChange={(e) => setF({ ...f, sku: e.target.value })}
               placeholder="BP-WIDGET-01"
+            />
+          </Field>
+          <Field label="HSN/SAC code" hint="Used automatically on invoices">
+            <Input
+              value={f.hsn}
+              onChange={(e) => setF({ ...f, hsn: e.target.value })}
+              placeholder="e.g. 8471"
+              maxLength={20}
+              inputMode="numeric"
             />
           </Field>
           <Field label="Category">
@@ -374,6 +393,7 @@ function ProductsPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {[
               ["SKU", viewing.sku],
+              ["HSN/SAC", viewing.hsn],
               ["Category", viewing.category],
               ["Unit", viewing.unit],
               ["GST", `${Number(viewing.gst) || 0}%`],

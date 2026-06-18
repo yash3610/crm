@@ -29,6 +29,7 @@ function makeRow(product) {
   return {
     id: crypto.randomUUID(),
     productId: product?.id || "",
+    hsn: product?.hsn || "",
     qty: 1,
     price: Number(product?.price) || 0,
     gst: Number(product?.gst) || 0,
@@ -104,6 +105,7 @@ function CreateInvoice() {
         return {
           ...row,
           productId: "",
+          hsn: "",
           price: 0,
           gst: 0,
         };
@@ -175,7 +177,7 @@ function CreateInvoice() {
       ...row,
       name: product?.name || "Product",
       description: product?.category,
-      hsn: product?.hsn,
+      hsn: row.hsn || product?.hsn || "",
     };
   });
   const renderedSettings = {
@@ -226,6 +228,7 @@ function CreateInvoice() {
           return {
             product: product?.mongoId,
             name: product?.name || "Product",
+            hsn: row.hsn || product?.hsn || "",
             qty: row.qty,
             price: row.price,
             gst: row.gst,
@@ -449,6 +452,7 @@ function CreateInvoice() {
                               if (!p) return;
                               update(r.id, {
                                 productId: p.id,
+                                hsn: p.hsn || "",
                                 price: p.price,
                                 gst: p.gst,
                               });

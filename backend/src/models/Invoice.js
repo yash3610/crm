@@ -5,6 +5,7 @@ const lineSchema = new mongoose.Schema(
   {
     product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
     name: { type: String, required: true },
+    hsn: { type: String, trim: true, maxlength: 20, default: "" },
     qty: { type: Number, required: true, min: 1 },
     price: { type: Number, required: true, min: 0 },
     gst: { type: Number, default: 0, min: 0, max: 100 },
